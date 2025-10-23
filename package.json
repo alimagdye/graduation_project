@@ -1,0 +1,52 @@
+{
+  "name": "event-ticketing-system",
+  "version": "1.0.0",
+  "description": "A backend system for managing event ticketing, including user authentication, event creation, and ticket purchasing.",
+  "main": "src/server.js",
+  "scripts": {
+    "setup": "node .run/setup.js",
+    "run:dev": "nodemon src/server.js",
+    "run:start": "node src/server.js",
+    "prisma:generate": "node .run/generate.js",
+    "prisma:migrate": "node .run/migrate.js",
+    "prisma:seed": "node .run/seed.js"
+  },
+  "keywords": [
+    "event",
+    "ticketing",
+    "backend",
+    "express",
+    "prisma",
+    "nodejs",
+    "authentication",
+    "api",
+    "tickets",
+    "events",
+    "database"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@prisma/client": "^6.17.1",
+    "@prisma/config": "^6.18.0",
+    "bcryptjs": "^3.0.2",
+    "bullmq": "^5.61.0",
+    "cors": "^2.8.5",
+    "disposable-email-domains": "^1.0.62",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "express-validator": "^7.2.1",
+    "ioredis": "^5.8.2",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.1",
+    "nodemailer": "^7.0.9",
+    "prisma": "^6.17.1",
+    "rate-limit-redis": "^4.2.3"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^10.1.0",
+    "nodemon": "^3.1.10"
+  }
+}
