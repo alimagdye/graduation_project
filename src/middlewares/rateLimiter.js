@@ -1,6 +1,6 @@
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
-import redisClient from '../config/redis.js';
+import { redis as redisClient } from '../config/redis.js';
 import { sendError } from './../utils/response.js';
 
 function rateLimiter({ windowMs, max, message }) {
