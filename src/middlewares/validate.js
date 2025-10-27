@@ -1,21 +1,17 @@
 import { validationResult } from 'express-validator';
-import { sendError } from '../utils/response.js';
+import { sendFail } from '../utils/response.js';
 
 function validate(req, res, next) {
     const result = validationResult(req);
-    
-    if (!result.isEmpty()) {
-        const errors = {};
-        
-        result.array().forEach(err => {
-            const field = err.param || err.path || 'general';
-            if (!errors[field]) {
-                errors[field] = err.msg;
-            }
-        });
-        return sendError(res, 'Invalid data', 422, errors, 422);
+    if (result.isEmpty()) return next();
+
+    const errors = {};
+    for (const err of result.array()) {
+        const field = err.param || err.path || 'general';
+        if (!errors[field]) errors[field] = err.msg;
     }
-    next();
+
+    return sendFail(res, errors, 422);
 }
 
 export default validate;
