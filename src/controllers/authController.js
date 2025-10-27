@@ -1,15 +1,15 @@
-import authService from '../../services/authService.js';
-import { sendSuccess, sendFail, sendError } from '../../utils/response.js';
+import authService from '../services/authService.js';
+import { sendSuccess, sendFail, sendError } from '../utils/response.js';
 
 const authController = {
     async register(req, res) {
         try {
-            const { name, email, age, password } = req.body;
+            const { name, email, password } = req.body;
             
-            const result = await authService.register({ name, email, age, password });
+            const result = await authService.register({ name, email, password });
 
-            if (result.createdUser.status === 'fail') {
-                return sendFail(res, result.createdUser.data, 400);
+            if (result.status === 'fail') {
+                return sendFail(res, result.data, 400);
             }
 
             return sendSuccess(res, { token: result.token }, 201);
