@@ -24,4 +24,4 @@ const jsend = {
     },
 };
 
-export default jsend;
+export default Object.freeze(jsend);
