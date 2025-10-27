@@ -15,7 +15,7 @@ dotenv.config({
 
 export const APP_NAME = process.env.APP_NAME;
 export const HOSTNAME = process.env.HOSTNAME;
-export const APP_SECRET_KEY = process.env.APP_SECRET_KEY;
+export const JWT_KEY = process.env.JWT_KEY;
 export const PORT = process.env.PORT || 8000;
 export const DATABASE_NAME = process.env.DATABASE_NAME;
 export const MAIL_HOST = process.env.MAIL_HOST;
