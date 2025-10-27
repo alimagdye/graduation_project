@@ -3,11 +3,12 @@ import { hashPassword } from './../utils/hash.js';
 
 const userService = {
     async create(user) {
-        const existingUser = await this.findByEmail(user.email);
+        const existingUser = await userService.findByEmail(user.email);
+        
         if (existingUser) {
             return {
                 status: 'fail',
-                data: { message: 'User already registered' },
+                data: { error: 'User already registered' },
             };
         }
 
@@ -25,12 +26,13 @@ const userService = {
     },
     
     async isVerified(userId) {
-        return prismaClient.user.findFirst({
+        const user = await prismaClient.user.findFirst({
             where: {
-                id: userId, 
+                id: userId,
                 isVerified: true
             },
-        }).isVerified === true;
+        });
+        return !!user?.isVerified;
     },
     
     async markVerified(email) {
