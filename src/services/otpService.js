@@ -30,19 +30,19 @@ const otpService = {
         if (!record || record.code !== otp) {
             return { 
                 status: 'fail', 
-                data: { message: 'Invalid OTP' }
+                data: { 'otp': 'Invalid OTP' }
             };
         }
         
         if (record.isUsed || new Date() > record.expiresAt) {
             return { 
                 status: 'fail',
-                data: { message: 'OTP expired' }
+                data: { 'otp': 'OTP expired' }
             };
         }
 
         await Promise.all([
-            this.markUsed(email),
+            otpService.markUsed(email),
             userService.markVerified(email),
         ]);
 
@@ -61,4 +61,3 @@ const otpService = {
 };
 
 export default otpService;
-
