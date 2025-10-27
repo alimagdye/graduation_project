@@ -1,4 +1,4 @@
-import jsend from './jsend.js';
+import jsend from './../config/jsend.js';
 
 function sendSuccess(res, data, status = 200) {
     return res.status(status).json(jsend.success(data));
