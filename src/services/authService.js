@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { APP_SECRET_KEY } from './../config/env.js';
+import { JWT_KEY } from './../config/env.js';
 import { matchPassword } from './../utils/hash.js';
 import userService from './userService.js';
 import mailService from './mailService.js';
@@ -10,15 +10,12 @@ const authService = {
         const createdUser = await userService.create(user);
 
         if (createdUser.status === 'fail') {
-            return {
-                createdUser,
-                token: null,
-            };
+            return createdUser;
         }
         
         const token = authService.generateToken(createdUser);
         
-        await this.sendOtpMail(user, true);
+        await authService.sendOtpMail(user, true);
         
         return {
             createdUser,
@@ -32,7 +29,7 @@ const authService = {
         if (!exists) {
             return {
                 status: 'fail',
-                data: { message: 'Invalid credentials' },
+                data: { error: 'Invalid credentials' },
             };
         }
 
@@ -41,7 +38,7 @@ const authService = {
         if (!isPasswordValid) {
             return {
                 status: 'fail',
-                data: { message: 'Invalid credentials' },
+                data: { error: 'Invalid credentials' },
             };
         }
         
@@ -61,12 +58,7 @@ const authService = {
         };
 
         const expiresIn = 3600;
-
-        const options = {
-            expiresIn,
-        };
-        
-        const token = jwt.sign(payload, APP_SECRET_KEY, options);
+        const token = jwt.sign(payload, JWT_KEY, { expiresIn });
 
         return {
             accessToken: token,
@@ -85,7 +77,7 @@ const authService = {
         if (userData.isVerified) {
             return {
                 status: 'fail',
-                data: { message: 'Email already verified' }
+                data: { error: 'Email already verified' }
             };
         }
         
@@ -108,7 +100,7 @@ const authService = {
         if (existingUser.isVerified) {
             return {
                 status: 'fail',
-                data: { message: 'Email already verified' }
+                data: { error: 'Email already verified' }
             };
         }
         
