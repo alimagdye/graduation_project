@@ -80,7 +80,7 @@ function setupEnvFile() {
 }
 
 function createDirectories() {
-    const directories = ['logs', 'uploads'];
+    const directories = ['logs'];
     
     directories.forEach(dir => {
         const dirPath = path.join(process.cwd(), dir);
@@ -127,7 +127,7 @@ ${colors.cyan}${colors.bright}╔═══════════════�
     createDirectories();
 
     log.step('Step 4: Generating Prisma Client');
-    if (!runScript('.run/generate.js', 'Generating Prisma Client')) {
+    if (!runScript('scripts/generate.js', 'Generating Prisma Client')) {
         log.warning('Prisma Client generation failed. You may need to configure your database first.');
     }
 
@@ -137,11 +137,11 @@ ${colors.cyan}${colors.bright}╔═══════════════�
     );
 
     if (runMigrations === 'y' || runMigrations === 'yes') {
-        if (!runScript('.run/migrate.js', 'Running database migrations')) {
+        if (!runScript('scripts/migrate.js', 'Running database migrations')) {
             log.warning('Migration failed. Make sure your database is running and .env is configured correctly.');
         }
     } else {
-        log.info('Skipping migrations. Run "node .run/migrate.js" manually when ready.');
+        log.info('Skipping migrations. Run "node scripts/migrate.js" manually when ready.');
     }
 
     log.step('Step 6: Seeding database');
@@ -150,11 +150,11 @@ ${colors.cyan}${colors.bright}╔═══════════════�
     );
 
     if (runSeed === 'y' || runSeed === 'yes') {
-        if (!runScript('.run/seed.js', 'Seeding database')) {
+        if (!runScript('scripts/seed.js', 'Seeding database')) {
             log.warning('Seeding failed. Make sure migrations have been run successfully.');
         }
     } else {
-        log.info('Skipping database seeding. Run "node .run/seed.js" manually when ready.');
+        log.info('Skipping database seeding. Run "node scripts/seed.js" manually when ready.');
     }
 
     console.log(`
@@ -171,9 +171,9 @@ ${colors.cyan}Next steps:${colors.reset}
 ${colors.cyan}Available commands:${colors.reset}
   ${colors.bright}npm run run:dev${colors.reset}         - Start development server
   ${colors.bright}npm run run:start${colors.reset}       - Start production server
-  ${colors.bright}node .run/migrate.js${colors.reset}    - Run database migrations
-  ${colors.bright}node .run/seed.js${colors.reset}       - Seed database with data
-  ${colors.bright}node .run/generate.js${colors.reset}   - Generate Prisma Client
+  ${colors.bright}node scripts/migrate.js${colors.reset}    - Run database migrations
+  ${colors.bright}node scripts/seed.js${colors.reset}       - Seed database with data
+  ${colors.bright}node scripts/generate.js${colors.reset}   - Generate Prisma Client
 
 ${colors.yellow}⚠️  Don't forget to configure your .env file!${colors.reset}
 `);
