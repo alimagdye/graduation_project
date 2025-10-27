@@ -38,14 +38,16 @@ const authValidations = {
                 return true;
             }),
 
-        body('age')
-            .isInt({ min: 0, max: 100, allow_leading_zeroes: false })
-            .withMessage('Age must be an integer between 0 and 100'),
-
         body('password')
             .trim()
             .notEmpty().withMessage('Password cannot be empty')
-            .isStrongPassword({ minLength: 8, returnScore: true }).withMessage('Password must be at least 8 characters long and include a mix of letters, numbers, and symbols'),
+            .isStrongPassword({ 
+                minLength: 8, 
+                minLowercase: 1, 
+                minUppercase: 0, 
+                minNumbers: 1, 
+                minSymbols: 1 
+            }).withMessage('Password must be at least 8 characters long and include a mix of letters, numbers, and symbols'),
     ],
     
     verifyOtp: [
