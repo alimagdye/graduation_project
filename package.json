@@ -4,12 +4,13 @@
   "description": "A backend system for managing event ticketing, including user authentication, event creation, and ticket purchasing.",
   "main": "src/server.js",
   "scripts": {
-    "setup": "node .run/setup.js",
-    "run:dev": "nodemon src/server.js",
-    "run:start": "node src/server.js",
-    "prisma:generate": "node .run/generate.js",
-    "prisma:migrate": "node .run/migrate.js",
-    "prisma:seed": "node .run/seed.js"
+    "setup": "node scripts/setup.js",
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "prisma:generate": "node scripts/generate.js",
+    "prisma:migrate": "node scripts/migrate.js",
+    "prisma:seed": "node scripts/seed.js",
+    "queue:mail-worker": "node src/workers/mailWorker.js"
   },
   "keywords": [
     "event",
@@ -29,7 +30,6 @@
   "type": "module",
   "dependencies": {
     "@prisma/client": "^6.17.1",
-    "@prisma/config": "^6.18.0",
     "bcryptjs": "^3.0.2",
     "bullmq": "^5.61.0",
     "cors": "^2.8.5",
@@ -42,11 +42,12 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
     "nodemailer": "^7.0.9",
-    "prisma": "^6.17.1",
     "rate-limit-redis": "^4.2.3"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.1.0",
+    "prisma": "^6.18.0",
+    "@prisma/config": "^6.18.0",
     "nodemon": "^3.1.10"
   }
 }
