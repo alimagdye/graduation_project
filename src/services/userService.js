@@ -41,6 +41,13 @@ const userService = {
             data: { isVerified: true },
         });
     },
+
+    async updatePassword(email, password) {
+        return prismaClient.user.update({
+            where: {email: email},
+            data: {password: password}
+        })
+    }
 };
 
 export default userService;

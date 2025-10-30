@@ -1,4 +1,6 @@
 import express from 'express';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 const app = express();
 
 //! BEFORE MIDDLEWARES
@@ -9,6 +11,8 @@ import { activityLogger } from './middlewares/activityLogger.js';
 //! ROUTES
 import authRoutes from './routes/auth.routes.js';
 
+app.use(helmet());
+app.use(cookieParser());
 app.use(cors(corsOptions));
 app.use(activityLogger);
 app.use(express.json());

@@ -83,6 +83,12 @@ const publicLimiter = rateLimiter({
     message: 'Request limit exceeded. Please try again shortly.'
 });
 
+const refreshLimiter = rateLimiter({
+    windowMS: 60*1000,
+    max: 5,
+    message: 'Too many refresh attempts, Try again later.',
+})
+
 export {
     rateLimiter,
     strictLimiter,
@@ -91,5 +97,6 @@ export {
     heavyLimiter,
     emailLimiter,
     publicLimiter,
+    refreshLimiter
 };
 

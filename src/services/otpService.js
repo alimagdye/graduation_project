@@ -58,6 +58,12 @@ const otpService = {
             data: { isUsed: true },
         });
     },
+
+    async deleteOtp(email) {
+        await prismaClient.otp.deleteMany({
+            where: {email},
+        })
+    }
 };
 
 export default otpService;
