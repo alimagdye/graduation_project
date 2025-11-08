@@ -1,4 +1,7 @@
+import { HOSTNAME , PORT } from '../config/env.js';
 import authService from '../services/authService.js';
+import mailService from '../services/mailService.js';
+import userService from '../services/userService.js';
 import { sendSuccess, sendFail, sendError } from '../utils/response.js';
 
 const authController = {
@@ -48,14 +51,7 @@ const authController = {
                 return sendFail(res, result.data, 400);
             }
 
-            const { accessToken, refreshToken} = result.token;
-
-            res.cookie('refreshToken', refreshToken, {
-                httpOnly: true,
-                maxAge: 7 * 24 * 60 * 60 * 1000,
-            })
-
-            return sendSuccess(res, accessToken, 200);
+            return sendSuccess(res, result.data, 200);
         } catch (err) {
             console.error(err);
             return sendError(res, 'Internal server error', 'INTERNAL_ERROR', null, 500);
@@ -65,14 +61,33 @@ const authController = {
     async refreshToken(req, res){
         try{
             const token = req.cookies.refreshToken;
+
             if(!token) return sendFail(res, { message: 'No refresh token' }, 401);
 
-            const newAccessToken = await authService.refreshToekn(token);
+            const newAccessToken = await authService.refreshToken(token);
 
             return sendSuccess(res, { accessToken: newAccessToken }, 200);
         }catch(err){
             console.error(err);
-            return sendError(res, 'nvalid or expired refresh token', 'INVALID_REFRESH', null, 403);
+            return sendError(res, 'Invalid or expired refresh token', 'INVALID_REFRESH', null, 403);
+        }
+    },
+
+    async logout(req,res){
+        try{
+            const refreshToken = req.cookies.refreshToken;
+            const user = req.user;
+
+            if(!refreshToken || !user){return sendFail(res, {message: 'No refresh token or user info'}, 401);}
+
+            await authService.logout(refreshToken, user);
+
+            //! front-end delete the refresh token from cookies
+
+            return sendSuccess(res, {message: 'Logged out successfully'}, 200);
+        }catch(err){
+            console.error(err);
+            return sendError(res, 'Logout failed', 'LOGOUT_ERROR', null, 500);
         }
     },
     
@@ -96,15 +111,20 @@ const authController = {
     async requestResetPassword(req, res) {
     try {
         const { email } = req.body;
-        const user = { email };
+        const user = await userService.findByEmail(email);
 
-        const result = await authService.sendOtpMail(user, false);
+        if(!user) return sendFail(res, { error: 'Email not Found'}, 404 );
+       
+        const token = crypto.randomBytes(32).toString('hex');
+        if(!token) return sendFail(res, {error: 'Something wrong in generate token'}, 404);
 
-        if (result.status === 'fail') {
-            return sendFail(res, result.data, 400);
-        }
+        await authService.createPasswordToken(email, token);
 
-        return sendSuccess(res, result.data, 200);
+        const URL = `http://${HOSTNAME}:${PORT}/reset-password?email=${email}&token=${token}`;
+
+        await mailService.sendPasswordResetJob(user, URL);
+
+        return sendSuccess(res, {message: 'Reset token sent to email'}, 200);
 
     } catch (err) {
         console.error(err);
@@ -114,9 +134,11 @@ const authController = {
 
     async resetPassword(req, res){
         try{
-            const {email, otp, newPassword} = req.body;
+            const {email, token, newPassword} = req.body;
 
-            const result = await authService.resetPassword(email, otp, newPassword);
+            if(!email || !token || !newPassword) return sendFail(res, { error: 'All Email, Token and newPassword fields are required' }, 400);
+
+            const result = await authService.resetPassword(email, token, newPassword);
 
             if(result.status === 'fail') return sendFail(res, result.data, 400);
 
@@ -127,5 +149,4 @@ const authController = {
         }
     }
 };
-
 export default authController;

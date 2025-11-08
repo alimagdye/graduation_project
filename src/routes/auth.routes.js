@@ -17,8 +17,10 @@ Router.post('/login', authLimiter, authValidations.login, validate, authControll
 
 Router.post('/refresh-token', refreshLimiter, authController.refreshToken);
 
-Router.post('/request-repassword', authController.requestResetPassword);
+Router.post('/forget-password', authValidations.forgetPassword,validate, authController.requestResetPassword);
 
-Router.post('/reset-password', authController.resetPassword);
+Router.post('/reset-password', authValidations.resetPassword, validate, authController.resetPassword);
+
+Router.post('/logout', auth, authController.logout)
 
 export default Router;

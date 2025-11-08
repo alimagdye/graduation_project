@@ -1,4 +1,4 @@
-import sendFail from '../utils/response';
+import { sendFail } from '../utils/response';
 
 const authorize = {
     isAdmin (req, res, next) {
