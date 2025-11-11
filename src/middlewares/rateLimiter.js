@@ -84,10 +84,16 @@ const publicLimiter = rateLimiter({
 });
 
 const refreshLimiter = rateLimiter({
-    windowMS: 60*1000,
-    max: 5,
+    windowMs: 30 * 60 * 1000, // 30min 
+    max: 60,
     message: 'Too many refresh attempts, Try again later.',
-})
+});
+
+const requestResetLimiter = rateLimit({
+    windowMs: 30 * 60 * 1000, // 30min
+    max: 5,
+    message: 'Too many request reset password, Try again later.'
+});
 
 export {
     rateLimiter,
@@ -97,6 +103,7 @@ export {
     heavyLimiter,
     emailLimiter,
     publicLimiter,
-    refreshLimiter
+    refreshLimiter,
+    requestResetLimiter
 };
 

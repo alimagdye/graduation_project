@@ -10,4 +10,12 @@ async function matchPassword(password, hashedPassword) {
     return await bcrypt.compare(password, hashedPassword);
 }
 
-export { hashPassword, matchPassword };
+async function hashToken(token) {
+    return await bcrypt.hash(token, SALT_ROUNDS);
+}
+
+async function matchToken(token, hashedToken) {
+    return await bcrypt.compare(token, hashedToken);
+}
+
+export { hashPassword, matchPassword, hashToken, matchToken };

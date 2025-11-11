@@ -60,17 +60,18 @@ model ResetPasswordToken {
   id         Int      @id @default(autoincrement())
   email      String
   token      String
-  createdAt  DateTime     @default(now())
+  createdAt  DateTime @default(now())
   expiresAt  DateTime
 }
 
 model RefreshToken {
   id        Int       @id   @default(autoincrement())
-  token     String
+  token     String    @unique
   isRevoked Boolean   @default(false)
   createdAt DateTime  @default(now())
   expiresAt DateTime
 
   userId    String
-  user      User      @relation(fields: [userId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, token])
 }

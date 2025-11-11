@@ -81,7 +81,15 @@ const authValidations = {
                 minNumbers: 1, 
                 minSymbols: 1 
             }).withMessage('Password must be at least 8 characters long and include a mix of letters, numbers, and symbols'),
-    ]
+    ],
+    logout: [
+        body('refreshToken')
+            .notEmpty().withMessage('Token is required')
+    ],
+    refreshToken: [
+        body('token')
+            .notEmpty().withMessage('Token is required')
+    ],
 };
 
 export default authValidations;

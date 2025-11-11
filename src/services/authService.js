@@ -1,11 +1,13 @@
 import jwt from 'jsonwebtoken';
 import { JWT_KEY, JWT_REKEY } from './../config/env.js';
-import { matchPassword , hashPassword} from './../utils/hash.js';
+import { matchPassword , hashPassword, hashToken, matchToken} from './../utils/hash.js';
 import userService from './userService.js';
 import mailService from './mailService.js';
 import otpService from './otpService.js';
 import { prisma as prismaClient } from '../config/db.js';
-
+import crypto from 'crypto';
+import { FRONT_URL } from '../config/env.js';
+import { ref } from 'process';
 
 const authService = {
     async register(user) {
@@ -15,13 +17,20 @@ const authService = {
             return createdUser;
         }
         
-        const token = await authService.generateToken(createdUser);
+        const accessToken = await authService.generateAccessToken(createdUser);
+        const refreshToken = await authService.generateRefreshToken(createdUser);
         
         await authService.sendOtpMail(user, true);
         
         return {
-            createdUser,
-            token,
+            data: {
+                accessToken: {
+                    token: accessToken.accessToken,
+                    type: accessToken.type,
+                    expiresIn: accessToken.expiresIn,
+                },
+                refreshToken: refreshToken.refreshToken
+            },
         };
     },
 
@@ -44,25 +53,50 @@ const authService = {
             };
         }
         
-        const tokenData = await authService.generateToken(exists);
+        const accessToken = await authService.generateAccessToken(exists);
+        const refreshToken = await authService.generateRefreshToken(exists);
+
 
         return {
-            data: tokenData,
+            data: {
+                accessToken: {
+                    token: accessToken.accessToken,
+                    type: accessToken.type,
+                    expiresIn: accessToken.expiresIn,
+                },
+                refreshToken: refreshToken.refreshToken,
+            }
         };
     },
 
-    async generateToken(user) {
+    async generateAccessToken(user) {
         const payload = {
             id: user.id,
             name: user.name,
             email: user.email,
             role: user.role,
         };
-
-        const expiresIn = 3600;
+        const expiresIn = 900; // 15min
         const token = jwt.sign(payload, JWT_KEY, { expiresIn });
-        const refreshToken = jwt.sign(payload, JWT_REKEY, {expiresIn: '7d'})
-        const hashedRefreshToken = await hashPassword(refreshToken);
+
+        return {
+            accessToken: token,
+            type: 'Bearer',
+            expiresIn: expiresIn,
+        };
+    },
+
+    async generateRefreshToken(user){
+        const payload = {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+        };
+        const expiresIn = 604800; // 7days
+        const token = jwt.sign(payload, JWT_REKEY, {expiresIn});
+        const hashedRefreshToken = await hashToken(token);
+
         await prismaClient.refreshToken.create({
             data: {
                 token: hashedRefreshToken,
@@ -70,81 +104,93 @@ const authService = {
                 createdAt: new Date(),
                 expiresAt: new Date(Date.now() + 7*24*60*60*1000)
             }
-        })
+        });
 
         return {
-            accessToken: token,
-            refreshToken: refreshToken,
-            type: 'Bearer',
-            expiresIn: expiresIn,
-        };
+            refreshToken: token,
+        }
     },
 
     async refreshToken(refreshToken){
-        const allTokens = await prismaClient.refreshToken.findMany();
-        let validToken = null;
+        const hashedToken = await hashToken(refreshToken);
+        const tokenRecord = await prismaClient.refreshToken.findFirst({
+            where:{token: hashedToken}
+        });
 
-        for(const tokenRecord of allTokens){
-            const isTokenValid = await matchPassword(refreshToken, tokenRecord.token);
-            if(isTokenValid){ validToken = tokenRecord; break;}
-        }
-
-        if(!validToken){
+        if(!tokenRecord || tokenRecord.expiresAt < new Date() || tokenRecord.isRevoked){
+            const msg = !tokenRecord ? 'Invalid refresh token':
+                        tokenRecord.expiresAt < new Date() ? 'Refresh token expired':
+                        'Refresh token revoked';
+            
             return {
                 status: 'fail',
-                data: {error: 'Invalid refresh token'}
-        }}
-
-        if(validToken.expiresAt < new Date()){
-            return {
-                status: 'fail',
-                data: {error: 'Refresh token expired'}
-        }}
-
-        if(validToken.isRevoked){
-            return{
-                status: 'fail',
-                data: {error: 'Refresh token revoked'}
-            }
+                data: {error: msg},
+            }                
         }
 
         const payload = jwt.verify(refreshToken, JWT_REKEY);
-
-        const newAccessToken = jwt.sign({
+        const newAccessToken = await authService.generateAccessToken({
             id: payload.id,
             name: payload.name,
             email: payload.email,
-            role: payload.role,
-        }, JWT_KEY , {expiresIn : '3600'}
-        );
+            role: payload.role
+        });
 
         return newAccessToken;
     },
 
     async logout(refreshToken, user){
-        const userTokens = await prismaClient.refreshToken.findMany({where: {userId: user.id}});
-        let tokenToRevoke = null;
+        const userTokens = await prismaClient.refreshToken.findMany({
+            where: {userId: user.id , isRevoked: false}
+        });
 
-        for (const tokenRecord of userTokens){
-            const isTokenValid = await matchPassword(refreshToken, tokenRecord.token);
-            if(isTokenValid){tokenToRevoke = tokenRecord; break;}
-        }
-        if(!tokenToRevoke){
-            return{
-                status: 'fail',
-                data: {error: 'Refresh token not found'}
+        let matchedToken = null;
+        for(const t of userTokens){
+            const isMatch = await matchToken(refreshToken, t.token);
+            if(isMatch){
+                matchedToken = t;
+                break;
             }
         }
 
+        if(!matchedToken){
+            return {
+            status: 'fail',
+            data: {error: 'Refresh token not found or already revoked'}
+            };
+        }
+
         await prismaClient.refreshToken.update({
-            where: {id: tokenToRevoke.id},
-            data:  {isRevoked: true},
+            where: { id: matchedToken.id },
+            data: { isRevoked: true }
+        });
+
+        await prismaClient.refreshToken.delete({
+            where: {id: matchedToken.id}
         })
+    },
+
+    async requestResetPassword(email){
+        const user = await userService.findByEmail({email});
+        if(!user) return {status: 'success', data: {message: 'We have sent you email containing instructions to reset password'}};
+
+        const token = crypto.randomBytes(32).toString('hex');
+        await authService.createPasswordToken(email, token);
+
+        const encodedEmail = encodeURIComponent(email);
+        const URL = `${FRONT_URL}/reset-password?email=${encodedEmail}&token=${token}`;
+        await mailService.sendPasswordResetJob(user, URL);
+
+        return {
+            status: 'success',
+            data: {message: 'Reset token sent to email'}
+        };
     },
 
     async resetPassword(email, token, newPassword){
         const record = await prismaClient.resetPasswordToken.findFirst({
-            where: {email , token},
+            where: {email},
+            orderBy: {createdAt: 'desc'},
         });
 
         if(!record) return {status:'fail' , data: {error: 'Invalid token'}};
@@ -155,9 +201,12 @@ const authService = {
             return {status: 'fail' , data:{error: 'Token expired'}};
         }
 
+        const isValid = await matchToken(token, record.token);
+        if(!isValid) return {status: 'fail', data: {error: 'Invalid token'}};
+
         const hashedNewPassword = await hashPassword(newPassword);
 
-        await prismaClient.user.update({
+        await userService.updatePassword({
             where: {email},
             data: {password: hashedNewPassword},
         });
@@ -169,9 +218,13 @@ const authService = {
     },
 
     async createPasswordToken(email , token){
+        await prismaClient.resetPasswordToken.deleteMany({where: {email}});
+
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-        return prismaClient.passwordResetToken.create({
-            data: {email:email, token:token, expiresAt: expiresAt},
+        const hashedToken = await hashToken(token);
+
+        return prismaClient.resetPasswordToken.create({
+            data: {email:email, token:hashedToken, expiresAt: expiresAt},
         })
     },
     

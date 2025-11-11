@@ -25,4 +25,5 @@ export const MAIL_PASS = process.env.MAIL_PASS;
 export const MAIL_FROM = process.env.MAIL_FROM;
 export const REDIS_URL = process.env.REDIS_URL || 'redis://';
 export const JWT_REKEY = process.env.JWT_REKEY;
+export const FRONT_URL = process.env.FRONT_URL;
 export { BASE_PATH };
