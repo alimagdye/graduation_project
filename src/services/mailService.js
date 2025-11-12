@@ -3,8 +3,9 @@ import mailQueue from '../queues/mailQueue.js';
 import passwordResetMail from '../mails/templates/passwordResetMail.js';
 
 const mailService = {
-    async sendOtpJob(user, otp) {
-        const html = otpMailTemplate({ name: user.name, otp });
+    async sendOtpJob(user, otp, expiresIn) {
+        const expiresInMinutes = Math.floor(expiresIn / 60);
+        const html = otpMailTemplate({ name: user.name, otp, expiresInMinutes});
         
         await mailQueue.add(
             'sendOtpMail', 
@@ -12,7 +13,7 @@ const mailService = {
                 to: user.email,
                 subject: 'Your Verification Code',
                 html,
-                text: `Your verification code is: ${otp}. This code will expire in 10 minutes.`
+                text: `Your verification code is: ${otp}. This code will expire in ${expiresIn / 60} minutes.`
             }, 
             { 
                 attempts: 3, 
@@ -26,8 +27,9 @@ const mailService = {
         );
     },
 
-    async sendPasswordResetJob(user, resetUrl) {
-        const html = passwordResetTemplate({ name: user.name, resetUrl });
+    async sendPasswordResetJob(user, resetUrl, expiresIn) {
+        const expiresInMinutes = Math.floor(expiresIn / 60);
+        const html = passwordResetMail({ name: user.name, resetUrl, expiresInMinutes});
 
         await mailQueue.add(
             'sendPasswordResetMail',
