@@ -3,23 +3,24 @@ import { prisma as prismaClient } from '../config/db.js';
 import userService from './userService.js';
 
 const otpService = {
+    OTP_EXPIRATION: 10 * 60, // 10 minutes
     generateOtp() {
         return crypto.randomInt(100000, 999999).toString();
     },
 
-    async storeOrUpdateOtp(email, code) {
+    async storeOrUpdateOtp(email, code, expiresIn = otpService.OTP_EXPIRATION) {
         await prismaClient.otp.upsert({
             where: { email },
             update: {
                 code,
                 isUsed: false,
-                expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+                expiresAt: new Date(Date.now() + (expiresIn * 1000)),
             },
             create: {
                 email,
                 code,
                 isUsed: false,
-                expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+                expiresAt: new Date(Date.now() + (expiresIn * 1000)),
             },
         });
     },
@@ -41,11 +42,7 @@ const otpService = {
             };
         }
 
-        await Promise.all([
-            otpService.markUsed(email),
-            userService.markVerified(email),
-        ]);
-
+        await userService.markVerified(email);
         return { 
             status: 'success', 
             data: { message: 'Email verified successfully' }
@@ -60,7 +57,7 @@ const otpService = {
     },
 
     async deleteOtp(email) {
-        await prismaClient.otp.deleteMany({
+        await prismaClient.otp.delete({
             where: {email},
         })
     }
