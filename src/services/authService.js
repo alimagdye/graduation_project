@@ -1,15 +1,18 @@
 import jwt from 'jsonwebtoken';
-import { JWT_KEY, JWT_REKEY } from './../config/env.js';
-import { matchPassword , hashPassword, hashToken, matchToken} from './../utils/hash.js';
+import {FRONT_URL, JWT_KEY} from './../config/env.js';
+import {hashPassword, hashToken, matchPassword, matchToken} from './../utils/hash.js';
 import userService from './userService.js';
 import mailService from './mailService.js';
 import otpService from './otpService.js';
-import { prisma as prismaClient } from '../config/db.js';
+import {prisma as prismaClient} from '../config/db.js';
 import crypto from 'crypto';
-import { FRONT_URL } from '../config/env.js';
-import { ref } from 'process';
 
 const authService = {
+    JWT_EXPIRATION: 15 * 60, // 15 minutes
+    REFRESH_EXPIRATION: 7 * 24 * 60 * 60, // 7 days
+    PASSWORD_RESET_EXPIRATION: 60 * 60, // 1 hour
+    OTP_EXPIRATION: 10 * 60, // 10 minutes
+    
     async register(user) {
         const createdUser = await userService.create(user);
 
@@ -17,19 +20,20 @@ const authService = {
             return createdUser;
         }
         
-        const accessToken = await authService.generateAccessToken(createdUser);
-        const refreshToken = await authService.generateRefreshToken(createdUser);
-        
-        await authService.sendOtpMail(user, true);
+        const { accessToken, type, expiresIn} = authService.generateAccessToken(createdUser);
+        const [refreshToken] = await Promise.all([
+            authService.generateRefreshToken(createdUser),
+            authService.sendOtpMail(createdUser, true)
+        ]);
         
         return {
             data: {
                 accessToken: {
-                    token: accessToken.accessToken,
-                    type: accessToken.type,
-                    expiresIn: accessToken.expiresIn,
+                    token: accessToken,
+                    type: type,
+                    expiresIn: expiresIn,
                 },
-                refreshToken: refreshToken.refreshToken
+                refreshToken: refreshToken
             },
         };
     },
@@ -53,90 +57,81 @@ const authService = {
             };
         }
         
-        const accessToken = await authService.generateAccessToken(exists);
+        const { accessToken, type, expiresIn} = authService.generateAccessToken(exists);
         const refreshToken = await authService.generateRefreshToken(exists);
-
-
+        
         return {
             data: {
                 accessToken: {
-                    token: accessToken.accessToken,
-                    type: accessToken.type,
-                    expiresIn: accessToken.expiresIn,
+                    token: accessToken,
+                    type: type,
+                    expiresIn: expiresIn,
                 },
-                refreshToken: refreshToken.refreshToken,
+                refreshToken: refreshToken,
             }
         };
     },
 
-    async generateAccessToken(user) {
+     generateAccessToken(user) {
         const payload = {
             id: user.id,
             name: user.name,
             email: user.email,
             role: user.role,
         };
-        const expiresIn = 900; // 15min
-        const token = jwt.sign(payload, JWT_KEY, { expiresIn });
+
+        const token = jwt.sign(payload, JWT_KEY, { expiresIn: authService.JWT_EXPIRATION });
 
         return {
             accessToken: token,
             type: 'Bearer',
-            expiresIn: expiresIn,
+            expiresIn: authService.JWT_EXPIRATION,
         };
     },
 
     async generateRefreshToken(user){
-        const payload = {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-        };
-        const expiresIn = 604800; // 7days
-        const token = jwt.sign(payload, JWT_REKEY, {expiresIn});
-        const hashedRefreshToken = await hashToken(token);
-
+        const refreshToken = crypto.randomBytes(64).toString('hex');
+        const hashed = await hashToken(refreshToken);
+        
         await prismaClient.refreshToken.create({
             data: {
-                token: hashedRefreshToken,
+                token: hashed,
                 userId: user.id,
                 createdAt: new Date(),
-                expiresAt: new Date(Date.now() + 7*24*60*60*1000)
+                expiresAt: new Date(Date.now() + (authService.REFRESH_EXPIRATION * 1000)),
             }
         });
-
-        return {
-            refreshToken: token,
-        }
+        
+        return refreshToken;
     },
 
-    async refreshToken(refreshToken){
-        const hashedToken = await hashToken(refreshToken);
-        const tokenRecord = await prismaClient.refreshToken.findFirst({
-            where:{token: hashedToken}
+    async refreshToken({ user, refreshToken }) {
+        const tokens = await prismaClient.refreshToken.findMany({
+            where: { userId: user.id, isRevoked: false },
         });
 
-        if(!tokenRecord || tokenRecord.expiresAt < new Date() || tokenRecord.isRevoked){
-            const msg = !tokenRecord ? 'Invalid refresh token':
-                        tokenRecord.expiresAt < new Date() ? 'Refresh token expired':
-                        'Refresh token revoked';
-            
-            return {
-                status: 'fail',
-                data: {error: msg},
-            }                
+        let matchedToken = null;
+
+        for (const t of tokens) {
+            const match = await matchToken(refreshToken, t.token);
+            if (match) {
+                matchedToken = t;
+                break;
+            }
         }
 
-        const payload = jwt.verify(refreshToken, JWT_REKEY);
-        const newAccessToken = await authService.generateAccessToken({
-            id: payload.id,
-            name: payload.name,
-            email: payload.email,
-            role: payload.role
-        });
+        if (!matchedToken || matchedToken.expiresAt < new Date() || matchedToken.isRevoked) {
+            return {
+                status: 'fail',
+                data: { error: 'Invalid or expired refresh token' },
+            };
+        }
 
-        return newAccessToken;
+        await prismaClient.refreshToken.delete({
+            where: { id: matchedToken.id },
+        });
+        
+        return authService.generateAccessToken(user);
     },
 
     async logout(refreshToken, user){
@@ -155,50 +150,45 @@ const authService = {
 
         if(!matchedToken){
             return {
-            status: 'fail',
-            data: {error: 'Refresh token not found or already revoked'}
+                status: 'fail',
+                data: {error: 'Refresh token not found or already revoked'}
             };
         }
-
+        
         await prismaClient.refreshToken.update({
             where: { id: matchedToken.id },
             data: { isRevoked: true }
         });
-
-        await prismaClient.refreshToken.delete({
-            where: {id: matchedToken.id}
-        })
     },
 
-    async requestResetPassword(email){
-        const user = await userService.findByEmail({email});
+    async requestResetPassword({email}){
+        const user = await userService.findByEmail(email);
         if(!user) return {status: 'success', data: {message: 'We have sent you email containing instructions to reset password'}};
 
         const token = crypto.randomBytes(32).toString('hex');
-        await authService.createPasswordToken(email, token);
-
         const encodedEmail = encodeURIComponent(email);
         const URL = `${FRONT_URL}/reset-password?email=${encodedEmail}&token=${token}`;
-        await mailService.sendPasswordResetJob(user, URL);
+        
+        await Promise.all([
+            authService.createPasswordToken(email, token),
+            mailService.sendPasswordResetJob(user, URL, authService.PASSWORD_RESET_EXPIRATION),
+        ]);
 
         return {
             status: 'success',
-            data: {message: 'Reset token sent to email'}
+            data: {message: 'We have sent you email containing instructions to reset password'}
         };
     },
 
-    async resetPassword(email, token, newPassword){
+    async resetPassword({email, token, newPassword}){
         const record = await prismaClient.resetPasswordToken.findFirst({
             where: {email},
             orderBy: {createdAt: 'desc'},
         });
 
-        if(!record) return {status:'fail' , data: {error: 'Invalid token'}};
-
         const now = new Date();
-        if(now > new Date(record.expiresAt)){
-            await prismaClient.resetPasswordToken.delete({where: {id: record.id}});
-            return {status: 'fail' , data:{error: 'Token expired'}};
+        if (!record || now > new Date(record.expiresAt)) {
+            return { status: 'fail', data: { error: 'Token expired or invalid' } };
         }
 
         const isValid = await matchToken(token, record.token);
@@ -206,21 +196,18 @@ const authService = {
 
         const hashedNewPassword = await hashPassword(newPassword);
 
-        await userService.updatePassword({
-            where: {email},
-            data: {password: hashedNewPassword},
-        });
-
-        await prismaClient.resetPasswordToken.delete({where : {id: record.id}});
+        await Promise.all([
+            userService.updatePassword(email, hashedNewPassword),
+            prismaClient.resetPasswordToken.delete({ where: { id: record.id } }),
+        ]);
 
         return { status: 'success', data: { message: "Password reset successfully" } };
-
     },
 
     async createPasswordToken(email , token){
         await prismaClient.resetPasswordToken.deleteMany({where: {email}});
 
-        const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+        const expiresAt = new Date(Date.now() + (authService.PASSWORD_RESET_EXPIRATION * 1000));
         const hashedToken = await hashToken(token);
 
         return prismaClient.resetPasswordToken.create({
@@ -231,7 +218,7 @@ const authService = {
     async sendOtpMail(user, isFirstTime) {
         let userData = user;
         
-        if (isFirstTime) {
+        if (!isFirstTime) {
             userData = await userService.findByEmail(user.email);
         }
         
@@ -245,8 +232,8 @@ const authService = {
         const otp = otpService.generateOtp();
         
         await Promise.all([
-            mailService.sendOtpJob(userData, otp), 
-            otpService.storeOrUpdateOtp(userData.email, otp)
+            mailService.sendOtpJob(userData, otp, authService.OTP_EXPIRATION), 
+            otpService.storeOrUpdateOtp(userData.email, otp, authService.OTP_EXPIRATION)
         ]);
         
         return {
