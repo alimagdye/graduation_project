@@ -56,9 +56,8 @@ const authController = {
     async refreshToken(req, res){
         try{
             const { refreshToken } = req.body;
-            const user = req.user;
             
-            const result = await authService.refreshToken({user, refreshToken});
+            const result = await authService.refreshToken({ refreshToken });
             
             if (!result || result.status === 'fail') {
                 return sendFail(res, result.data, 403);
@@ -75,12 +74,13 @@ const authController = {
         try{
             const { refreshToken } = req.body;
             const user = req.user;
+            const accessToken = req.accessToken;
 
-            await authService.logout(refreshToken, user);
-
-            //! front-end delete the refresh token from cookies
-
-            return sendSuccess(res, {message: 'Logged out successfully'}, 200);
+            const result = await authService.logout({ user, accessToken, refreshToken });
+            if (!result || result.status === 'fail') {
+                return sendFail(res, result.data, 400);
+            }
+            return sendSuccess(res, result.data, 200);
         }catch(err){
             console.error(err);
             return sendError(res, 'Logout failed', 'LOGOUT_ERROR', null, 500);
