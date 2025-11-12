@@ -27,6 +27,8 @@ model User {
   isVerified         Boolean  @default(false)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+
+  refreshToken       RefreshToken[]
 }
 
 enum Role {
@@ -52,4 +54,24 @@ model Otp {
   isUsed    Boolean  @default(false)
   createdAt DateTime @default(now())
   expiresAt DateTime
+}
+
+model ResetPasswordToken {
+  id         Int      @id @default(autoincrement())
+  email      String
+  token      String
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+}
+
+model RefreshToken {
+  id        Int       @id   @default(autoincrement())
+  token     String    @unique
+  isRevoked Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, token])
 }

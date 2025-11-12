@@ -57,6 +57,39 @@ const authValidations = {
             .isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits long')
             .isNumeric().withMessage('OTP must contain only numbers'),
     ],
+    forgetPassword: [
+        body('email')
+            .trim()
+            .notEmpty().withMessage('Email is required')
+            .isEmail().withMessage('Invalid email format'),
+    ], 
+    resetPassword: [
+        body('email')
+            .trim()
+            .notEmpty().withMessage('Email is required')
+            .isEmail().withMessage('Invalid email format'),
+        body('token')
+            .trim()
+            .notEmpty().withMessage('Token is required'),
+        body('newPassword')
+            .trim()
+            .notEmpty().withMessage('NewPassword is required')
+            .isStrongPassword({ 
+                minLength: 8, 
+                minLowercase: 1, 
+                minUppercase: 0, 
+                minNumbers: 1, 
+                minSymbols: 1 
+            }).withMessage('Password must be at least 8 characters long and include a mix of letters, numbers, and symbols'),
+    ],
+    logout: [
+        body('refreshToken')
+            .notEmpty().withMessage('Token is required')
+    ],
+    refreshToken: [
+        body('refreshToken')
+            .notEmpty().withMessage('Token is required')
+    ],
 };
 
 export default authValidations;
