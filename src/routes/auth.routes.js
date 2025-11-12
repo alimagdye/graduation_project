@@ -15,7 +15,7 @@ Router.post('/resend-otp', emailLimiter, auth, authController.resendOtp);
 
 Router.post('/login', authLimiter, authValidations.login, validate, authController.login);
 
-Router.post('/refresh-token', refreshLimiter, auth, authValidations.refreshToken, validate, authController.refreshToken);
+Router.post('/refresh-token', refreshLimiter, authValidations.refreshToken, validate, authController.refreshToken);
 
 Router.post('/forgot-password', requestResetLimiter, authValidations.forgetPassword,validate, authController.requestResetPassword);
 
