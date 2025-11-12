@@ -87,7 +87,7 @@ const authValidations = {
             .notEmpty().withMessage('Token is required')
     ],
     refreshToken: [
-        body('token')
+        body('refreshToken')
             .notEmpty().withMessage('Token is required')
     ],
 };
