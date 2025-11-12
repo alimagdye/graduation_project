@@ -1,9 +1,10 @@
 import jwt from 'jsonwebtoken';
-import {FRONT_URL, JWT_KEY} from './../config/env.js';
-import {hashPassword, hashToken, matchPassword, matchToken} from './../utils/hash.js';
+import {FRONT_URL, JWT_KEY, JWT_REKEY} from './../config/env.js';
+import {hashPassword, hashToken, matchPassword, matchToken, hashHMAC, hashSHA} from './../utils/hash.js';
 import userService from './userService.js';
 import mailService from './mailService.js';
 import otpService from './otpService.js';
+import cacheService from "./cacheService.js";
 import {prisma as prismaClient} from '../config/db.js';
 import crypto from 'crypto';
 
@@ -12,6 +13,7 @@ const authService = {
     REFRESH_EXPIRATION: 7 * 24 * 60 * 60, // 7 days
     PASSWORD_RESET_EXPIRATION: 60 * 60, // 1 hour
     OTP_EXPIRATION: 10 * 60, // 10 minutes
+    ACCESS_CACHE_PREFIX: 'auth:rt:',
     
     async register(user) {
         const createdUser = await userService.create(user);
@@ -91,7 +93,7 @@ const authService = {
 
     async generateRefreshToken(user){
         const refreshToken = crypto.randomBytes(64).toString('hex');
-        const hashed = await hashToken(refreshToken);
+        const hashed = hashHMAC(refreshToken, JWT_REKEY);
         
         await prismaClient.refreshToken.create({
             data: {
@@ -105,60 +107,51 @@ const authService = {
         return refreshToken;
     },
 
-    async refreshToken({ user, refreshToken }) {
-        const tokens = await prismaClient.refreshToken.findMany({
-            where: { userId: user.id, isRevoked: false },
+    async refreshToken({ refreshToken }) {
+        const hashed = hashHMAC(refreshToken, JWT_REKEY);
+        const tokenRecord = await prismaClient.refreshToken.findFirst({
+            where: { token: hashed, isRevoked: false },
+            include: { user: true },
         });
-
-        let matchedToken = null;
-
-        for (const t of tokens) {
-            const match = await matchToken(refreshToken, t.token);
-            if (match) {
-                matchedToken = t;
-                break;
-            }
-        }
-
-        if (!matchedToken || matchedToken.expiresAt < new Date() || matchedToken.isRevoked) {
+        
+        if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
             return {
                 status: 'fail',
                 data: { error: 'Invalid or expired refresh token' },
             };
         }
-
-        await prismaClient.refreshToken.delete({
-            where: { id: matchedToken.id },
-        });
         
-        return authService.generateAccessToken(user);
+        return authService.generateAccessToken(tokenRecord.user);
     },
 
-    async logout(refreshToken, user){
-        const userTokens = await prismaClient.refreshToken.findMany({
-            where: {userId: user.id , isRevoked: false}
+    async logout({ user, accessToken, refreshToken }){
+        const hashed = hashHMAC(refreshToken, JWT_REKEY);
+        const tokenRecord = await prismaClient.refreshToken.findFirst({
+            where: { token: hashed, isRevoked: false },
+            include: { user: true },
         });
 
-        let matchedToken = null;
-        for(const t of userTokens){
-            const isMatch = await matchToken(refreshToken, t.token);
-            if(isMatch){
-                matchedToken = t;
-                break;
-            }
-        }
-
-        if(!matchedToken){
+        if(!tokenRecord || tokenRecord.expiresAt < new Date()) {
             return {
                 status: 'fail',
                 data: {error: 'Refresh token not found or already revoked'}
             };
         }
+
+        if (tokenRecord.user.id === user.id) {
+            const { cacheKey, ttl } = authService.accessTokenCache({ accessToken });
+            await Promise.all([
+                cacheService.set(cacheKey, true, ttl), 
+                prismaClient.refreshToken.delete({
+                    where: { id: tokenRecord.id },
+                })
+            ]);
+        }
         
-        await prismaClient.refreshToken.update({
-            where: { id: matchedToken.id },
-            data: { isRevoked: true }
-        });
+        return {
+            status: 'success',
+            data: { message: 'Logged out successfully' },
+        };
     },
 
     async requestResetPassword({email}){
@@ -204,7 +197,7 @@ const authService = {
         return { status: 'success', data: { message: "Password reset successfully" } };
     },
 
-    async createPasswordToken(email , token){
+    async createPasswordToken(email, token){
         await prismaClient.resetPasswordToken.deleteMany({where: {email}});
 
         const expiresAt = new Date(Date.now() + (authService.PASSWORD_RESET_EXPIRATION * 1000));
@@ -263,6 +256,18 @@ const authService = {
             status: 'success',
             data: { message: 'Email verified successfully' }
         };
+    },
+    
+    accessTokenCache({ accessToken }) {
+        const decoded = jwt.decode(accessToken);
+        const ttl = decoded ? Math.max(decoded.exp - Math.floor(Date.now() / 1000), 1) : 3600;
+        const tokenHash = hashSHA(accessToken);
+        return { cacheKey:`${authService.ACCESS_CACHE_PREFIX}${tokenHash.slice(0, 24)}`, ttl };
+    },
+    
+    async isAccessAlive({ accessToken }) {
+        const { cacheKey } = authService.accessTokenCache({ accessToken });
+        return !(await cacheService.exists(cacheKey));
     },
 };
 
