@@ -1,4 +1,4 @@
-export default function passwordResetMail({ name, resetUrl }) {
+export default function passwordResetMail({ name, resetUrl, expiresInMinutes }) {
   return `
     <div style="font-family: Arial, sans-serif; color: #333;">
       <h2>Hello ${name || ''},</h2>
@@ -10,7 +10,7 @@ export default function passwordResetMail({ name, resetUrl }) {
       </a>
       <br/><br/>
       <p>If you didn’t request this, please ignore this email.</p>
-      <p><small>This link will expire in 1 hour.</small></p>
+      <p><small>This link will expire in ${expiresInMinutes} minutes.</small></p>
     </div>
   `;
 }
