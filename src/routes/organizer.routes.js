@@ -18,12 +18,13 @@ Router.post(
     assertMultipart,
     authorize.isOrganizer,
     upload.single('banner'),
-    parseJsonFields(['location', 'tickets']),
+    parseJsonFields(['location', 'tickets', 'Sessions']),
     organizerValidation.createEvent,
     validate,
     organizerController.createEvent
 );
 
+//TODO
 //Router.put('/events/:eventId', publicLimiter, authorize.isOrganizer, eventValidation.create, validate, organizerController.updateEvent);
 //Router.delete('/events/:eventId', publicLimiter, authorize.isOrganizer, organizerController.deleteEvent);
 //Router.get('/events', publicLimiter, authorize.isOrganizer, organizerController.listEvents);

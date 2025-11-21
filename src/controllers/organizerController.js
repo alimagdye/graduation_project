@@ -15,6 +15,9 @@ const organizerController = {
             description,
             banner,
             tickets,
+            sessions,
+            eventType,
+            eventMode,
         } = req.body;
         
         const result = await organizerService.createEvent(
@@ -27,6 +30,9 @@ const organizerController = {
             description,
             banner,
             tickets,
+            sessions,
+            eventType,
+            eventMode,
         });
         
         if (result.status === 'fail') {
