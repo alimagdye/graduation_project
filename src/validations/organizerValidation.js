@@ -1,5 +1,7 @@
 import { body } from 'express-validator';
 import eventStatus from '../constants/enums/eventStatus.js';
+import EventMode from '../constants/enums/eventMode.js';
+import EventType from '../constants/enums/eventType.js';
 import fileService from '../services/fileService.js';
 
 const organizerValidation = {
@@ -34,10 +36,10 @@ const organizerValidation = {
                 throw new Error('Banner image is required');
             }
 
-            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            const allowedTypes = ['image/jpg', 'image/png', 'image/gif'];
             if (!allowedTypes.includes(req.file.mimetype)) {
                 await fileService.delete(req.file.path);
-                throw new Error(`Only .jpg, .png, and .webp formats allowed`);
+                throw new Error(`Only .jpg, .png, and .gif formats allowed`);
             }
 
             if (req.file.size > 5 * 1024 * 1024) {
@@ -55,18 +57,29 @@ const organizerValidation = {
         body('location.address').trim().isString().notEmpty().withMessage('Address is required'),
         body('location.country').trim().isString().notEmpty().withMessage('Country is required'),
         body('location.city').trim().isString().notEmpty().withMessage('City is required'),
-
-        body('location.state').optional().trim().isString(),
         body('location.zipCode').optional().trim().isString(),
         body('location.googlePlaceId').optional().trim().isString(),
-
-        body('location.capacity')
-            .isInt({ min: 1 }).withMessage('Capacity must be a number greater than 0')
-            .toInt(),
 
         body('tickets').isArray({ min: 1 }).withMessage('At least one ticket type is required'),
         body('tickets.*.name').trim().notEmpty().withMessage('Ticket name required'),
         body('tickets.*.price').isFloat({ min: 0 }).withMessage('Price must be positive'),
+        body('ticket.*.quantity').isInt({min: 1}).withMessage('Quantity must be at least 1'),
+
+        body('sessions').optional().isArray().withMessage('sessions must be an array')
+        .custom((sessions) => {
+        for (let s of sessions) {
+        if (!s.startDate || !s.endDate) {
+          throw new Error('Each session must have startDate and endDate');
+        }
+        if (new Date(s.startDate) >= new Date(s.endDate)) {
+          throw new Error('startDate must be before endDate in each session');
+        }
+        }
+        return true;
+        }),
+        body('eventType').notEmpty().withMessage('eventType is required').isIn(Object.values(EventType)).withMessage(`eventType must be ${Object.values(EventType).join(',')}`),
+        body('eventMode').notEmpty().withMessage('eventMode is required').isIn(Object.values(EventMode)).withMessage(`eventMode must be ${Object.values(EventMode).join(',')}`),
+
     ],
 };
 
