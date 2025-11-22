@@ -1,6 +1,6 @@
 const Gender = Object.freeze({
    MALE: 'male',
-   FEMALE: 'famale',
+   FEMALE: 'female',
 });
 
 export default Gender;
