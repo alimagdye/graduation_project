@@ -41,8 +41,62 @@ const organizerController = {
         
         return sendSuccess(res, result.data, 201);
     }),
+
+    deleteEvent: asyncWrapper(async (req, res)=>{
+        const eventId = req.params.eventId;
+        const userId = req.user.id;
+
+        const result = await organizerService.deleteEvent(userId, eventId);
+
+        if (result.status === 'fail') {
+            return sendFail(res, result.data, 400);
+        }
+        
+        return sendSuccess(res, result.data, 200);
+    }),
+
+    updateEvent: asyncWrapper(async (req, res)=> {
+        const eventId = req.params.eventId;
+        const userId = req.user.id;
+
+         const {
+            title,
+            category,
+            startDate,
+            endDate,
+            location,
+            description,
+            banner,
+            tickets,
+            sessions,
+            eventType,
+            eventMode
+        } = req.body;
+
+        const result = await organizerService.updateEvent(
+            userId,
+            eventId,
+            {
+                title,
+                category,
+                startDate,
+                endDate,
+                location,
+                description,
+                banner,
+                tickets,
+                sessions,
+                eventType,
+                eventMode,
+        });
+
+        if(result.status === 'fail') {
+            return sendFail(res, result.data, 400);
+        }
+
+        return sendSuccess(res, result.data, 200);        
+    }),
     
 };
-
 
 export default organizerController;

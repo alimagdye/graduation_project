@@ -24,9 +24,21 @@ Router.post(
     organizerController.createEvent
 );
 
-//TODO
-//Router.put('/events/:eventId', publicLimiter, authorize.isOrganizer, eventValidation.create, validate, organizerController.updateEvent);
-//Router.delete('/events/:eventId', publicLimiter, authorize.isOrganizer, organizerController.deleteEvent);
+Router.put('/events/:eventId',
+            publicLimiter,
+            auth,
+            authorize.isOrganizer,
+            organizerValidation.updateEvent,
+            validate,
+            organizerController.updateEvent
+);
+
+Router.delete('/events/:eventId',
+              publicLimiter,
+              auth,
+              authorize.isOrganizer,
+              organizerController.deleteEvent
+);
 //Router.get('/events', publicLimiter, authorize.isOrganizer, organizerController.listEvents);
 //Router.get('/events/:eventId/registrations', publicLimiter, authorize.isOrganizer, organizerController.listRegistrations);
 //Router.put('/registrations/:registrationId', publicLimiter, authorize.isOrganizer, organizerController.manageRegistration);
