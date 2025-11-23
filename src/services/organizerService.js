@@ -3,7 +3,6 @@ import eventService from './eventService.js';
 import ticketTypeService from './ticketTypeService.js';
 import venueService from './venueService.js';
 import fileService from './fileService.js';
-import EventMode from '../constants/enums/eventMode.js';
 import EventType from '../constants/enums/eventType.js';
 import categoryService from '../services/categoryService.js';
 
@@ -19,8 +18,11 @@ const organizerService = {
     },
     
     // CREATE EVENT
-    async createEvent(userId, { title, category: categoryName, startDate, endDate, location, description, banner, tickets, sessions, eventType, eventMode }) {
-        const organizer = await organizerService.getByUserId(userId);
+    async createEvent(userId, { title, categoryName, sessions, location, description, banner, tickets, type, mode }) {
+        const [organizer, category] = await Promise.all([
+            organizerService.getByUserId(userId),
+            categoryService.getByCategory(categoryName)
+        ]);
         if (!organizer) {
             return {
                 status: 'fail',
@@ -34,50 +36,34 @@ const organizerService = {
                 data: { error: 'Organizer is not approved to create events' },
             };
         }
+
+        if(!category) return {status:'fail', data: {error: 'Invalid category'}};
         
         let result = null;
         try {
             const result = await prismaClient.$transaction(async (tx) => {
-
                 const venue = await venueService.create(location, tx);
                 
-                const category = await categoryService.getByCategory(categoryName, tx); 
-                if(!category) return {status:'fail', data: {error: 'Invalid category'}};
-
                 const event = await eventService.create(organizer.id, {
                     title,
                     description,
                     banner,
-                    eventMode,
-                    eventType,
+                    mode,
+                    type,
                     venueId: venue.id, 
                     categoryId: category.id,
                 }, tx);
                 
-                let eventSessions = [];
-                if(eventMode === EventMode.SINGLE){
-                    const singleSession = await eventService.createSession(
-                        event.id, {startDate, endDate}, tx
-                    );
-                    eventSessions.push(singleSession);
-                }else if (eventMode === EventMode.RECURRING){
-                    for(const s of sessions){
-                        const recurringSession = await eventService.createSession(
-                            event.id, {startDate: s.startDate, endDate: s.endDate}, tx
-                        );
-                        eventSessions.push(recurringSession);
-                    };
-                }
+                const eventSessions = await eventService.createBulkSessions(event.id, sessions, tx);
 
                 let ticketTypes = [];
-                if (tickets && tickets.length > 0 && eventType === EventType.TICKTED) {
+                if (tickets && tickets.length > 0 && type === EventType.TICKTED) {
                     ticketTypes = await ticketTypeService.createBulk(event.id, tickets, tx);
-                }else if(tickets && tickets.length > 0 && eventType === EventType.FREE){
-                    // frontend -> [name: free ticket , quantity, price=0] // or will make it in backend
+                } else if (tickets && tickets.length > 0 && type === EventType.FREE) {
                     ticketTypes = await ticketTypeService.createFreeBulk(event.id, tickets, tx);
                 }
 
-                return { event, ticketTypes, venue, eventSessions};
+                return { event, ticketTypes, venue, eventSessions };
             });
 
             return {
@@ -85,9 +71,11 @@ const organizerService = {
                 data: result,
             };
         } catch (err) {
-            if (result.event.bannerPath) {
-                await fileService.delete(result.event.bannerPath);
+            if (result?.event.bannerPath) {
+                console.log(result?.event.bannerPath);
+                await fileService.delete(result?.event.bannerPath);
             }
+            console.log(err);
             throw err;
         }
     },
