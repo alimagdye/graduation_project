@@ -63,7 +63,7 @@ const organizerValidation = {
         body('tickets').isArray({ min: 1 }).withMessage('At least one ticket type is required'),
         body('tickets.*.name').trim().notEmpty().withMessage('Ticket name required'),
         body('tickets.*.price').isFloat({ min: 0 }).withMessage('Price must be positive'),
-        body('ticket.*.quantity').isInt({min: 1}).withMessage('Quantity must be at least 1'),
+        body('tickets.*.quantity').isInt({min: 1}).withMessage('Quantity must be at least 1'),
 
         body('sessions').optional().isArray().withMessage('sessions must be an array')
         .custom((sessions) => {
@@ -80,6 +80,58 @@ const organizerValidation = {
         body('eventType').notEmpty().withMessage('eventType is required').isIn(Object.values(EventType)).withMessage(`eventType must be ${Object.values(EventType).join(',')}`),
         body('eventMode').notEmpty().withMessage('eventMode is required').isIn(Object.values(EventMode)).withMessage(`eventMode must be ${Object.values(EventMode).join(',')}`),
 
+    ],
+
+    updateEvent: [
+    body('title')
+        .optional()
+        .trim()
+        .isString().withMessage('Title must be a string'),
+
+    body('category')
+        .optional()
+        .isString().withMessage('Category must be a string'),
+
+    body('description')
+        .optional()
+        .trim()
+        .isString().withMessage('Description must be a string'),
+
+    body('location')
+        .optional()
+        .isObject().withMessage('Location must be an object'),
+        body('location.latitude').optional().isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
+        body('location.longitude').optional().isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
+        body('location.name').optional().trim().isString().withMessage('Venue name must be a string'),
+        body('location.address').optional().trim().isString().withMessage('Address must be a string'),
+        body('location.city').optional().trim().isString().withMessage('City must be a string'),
+        body('location.country').optional().trim().isString().withMessage('Country must be a string'),
+
+    body('banner').optional().isString().withMessage('Banner must be a string (file path)'),
+
+    body('eventType').optional().isIn(Object.values(EventType)).withMessage(`eventType must be one of ${Object.values(EventType).join(', ')}`),
+    body('eventMode').optional().isIn(Object.values(EventMode)).withMessage(`eventMode must be one of ${Object.values(EventMode).join(', ')}`),
+
+    body('startDate').optional().isISO8601().toDate().withMessage('startDate must be a valid date'),
+    body('endDate').optional().isISO8601().toDate().withMessage('endDate must be a valid date'),
+
+    body('sessions')
+        .optional()
+        .isArray().withMessage('sessions must be an array')
+        .custom(sessions => {
+            for (const s of sessions) {
+                if (!s.startDate || !s.endDate) throw new Error('Each session must have startDate and endDate');
+                if (new Date(s.startDate) >= new Date(s.endDate)) throw new Error('startDate must be before endDate in each session');
+            }
+            return true;
+        }),
+
+    body('tickets')
+        .optional()
+        .isArray().withMessage('tickets must be an array'),
+        body('tickets.*.name').optional().trim().isString().withMessage('Ticket name must be a string'),
+        body('tickets.*.price').optional().isFloat({ min: 0 }).withMessage('Price must be >= 0'),
+        body('tickets.*.quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
     ],
 };
 
