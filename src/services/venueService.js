@@ -1,14 +1,14 @@
 import { prisma as prismaClient } from '../config/db.js';
 
 const venueService = {
-    async create(eventId, { name, address, city, country, zipCode, longitude, latitude, googlePlaceId }, tx = prismaClient) {
+    async create({ name, address, city, country, state, zipCode = null, longitude, latitude, googlePlaceId = null }, tx = prismaClient) {
         return tx.venue.create({
             data: {
-                eventId,
                 name,
                 address,
                 city,
                 country,
+                state,
                 zipCode,
                 longitude,
                 latitude,
