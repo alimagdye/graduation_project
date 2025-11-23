@@ -97,22 +97,140 @@ const organizerService = {
     //     return eventService.list({ status, dateRange, organizerId });
     // },
     
-    // async updateEvent(userId, eventId, { title, description, startDate, endDate, status, banner }) {
-        
-    // },
+    //UPDATE
+    async updateEvent(userId, eventId, { title, category: categoryName, description, startDate, endDate, banner, tickets, sessions, eventType, eventMode, location}) {
+        const organizer = await organizerService.getByUserId(userId);
+        const event = await eventService.getById(eventId);
+
+        if (!organizer) {
+            return { status: 'fail', data: { error: 'Organizer not found' }};
+        }
+
+        if (!event) {
+            return { status: 'fail', data: { error: `Event doesn't exist` }};
+        }
+
+        if (event.organizerId !== organizer.id) {
+            return { status: 'fail', data: { error: 'Unauthorized to update this event' }};
+        }
+
+        let oldBannerPath = event.bannerPath;
+
+        try {
+            const result = await prismaClient.$transaction(async (tx) => {
+
+                const category = await categoryService.getByCategory(categoryName, tx);
+                if (!category) throw new Error("Invalid category");
+
+                let updatedVenueId = event.venueId;
+                if (location) {
+                    const updatedVenue = await venueService.update(event.venueId, location, tx);
+                    updatedVenueId = updatedVenue.id;
+                }
+
+                let bannerPath = event.bannerPath;
+                if (banner && banner !== oldBannerPath) {
+                    bannerPath = await fileService.save(banner);
+                }
+
+                const updatedEvent = await eventService.update(eventId, {
+                    title,
+                    description,
+                    bannerPath,
+                    eventMode,
+                    eventType,
+                    categoryId: category.id,
+                    venueId: updatedVenueId,
+                }, tx);
+
+                if (eventMode) {
+                    await eventService.deleteSessions(eventId, tx);
+
+                    if (eventMode === EventMode.SINGLE && startDate && endDate) {
+                        await eventService.createSession(eventId, { startDate, endDate }, tx);
+                    } else if (eventMode === EventMode.RECURRING && sessions && sessions.length > 0) {
+                        for (const s of sessions) {
+                            await eventService.createSession(eventId, { startDate: s.startDate, endDate: s.endDate }, tx);
+                        }
+                    }
+                }
+
+                if (tickets && tickets.length > 0) {
+                    await ticketTypeService.deleteTickets(eventId, tx);
+
+                    if (eventType === EventType.TICKTED) {
+                        await ticketTypeService.createBulk(eventId, tickets, tx);
+                    } else if (eventType === EventType.FREE) {
+                        await ticketTypeService.createFreeBulk(eventId, tickets, tx);
+                    }
+                }
+
+                return { updatedEvent };
+            });
+
+            if (banner && banner !== oldBannerPath) {
+                await fileService.delete(oldBannerPath);
+            }
+
+            return { 
+                status: 'success',
+                data: {
+                    message: 'Event updated successfully',
+                    result,
+                },
+            };
+
+        } catch (err) {
+            if (banner && banner !== oldBannerPath) {
+                await fileService.delete(banner);
+            }
+            throw err;
+        }
+    },
     
-    // async deleteEvent(organizerId, eventId) {
-    //     const event = eventService.getById(eventId);
+    //DELETE
+    async deleteEvent(userId, eventId) {
+        const event = await eventService.getById(eventId);
+        const organizer = await organizerService.getByUserId(userId);
         
-    //     if (event.organizerId !== organizerId) {
-    //         return {
-    //             status: 'fail',
-    //             data: { error: 'Unauthorized to delete this event' },
-    //         };
-    //     }
+        if(!event) {
+            return {
+                status: 'fail',
+                data: { error: `Event doesn't exist` },
+            };
+        }
+
+        if (!organizer) {
+            return {
+                status: 'fail',
+                data: { error: 'Organizer profile not found' },
+            };
+        }
+
+        if (!organizer.isApproved) {
+            return {
+                status: 'fail',
+                data: { error: 'Organizer is not approved to delete events' },
+            };
+        }
+
+        if (event.organizerId !== organizer.id) {
+            return {
+                status: 'fail',
+                data: { error: 'Unauthorized to delete this event' },
+            };
+        }
         
-    //     return eventService.delete(eventId);
-    // },
+        const result = await eventService.delete(eventId);
+
+        return {
+            status: 'success',
+            data: {
+                message: 'Event deleted successfully',
+                result,
+            }
+        }
+    },
     
     async getByUserId(userId) {
         return prismaClient.organizer.findUnique({
