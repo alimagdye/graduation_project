@@ -42,7 +42,11 @@ const ticketTypeService = {
         });
     },
     
-    
+    async deleteTickets(eventId, tx= prismaClient){
+        return tx.ticketType.deleteMany({
+            where:{eventId},
+        });
+    }
 };
 
 
