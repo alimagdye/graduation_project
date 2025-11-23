@@ -80,35 +80,40 @@ model RefreshToken {
 
 model Organizer {
   id         String   @id @default(uuid())
-  userId     String   @unique
+  // userId     String   @unique
   isApproved Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  Event Event?
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events Event[]
 }
 
 model Event {
   id           Int            @id @default(autoincrement())
-  organizerId  String         @unique
-  venueId      Int
-  categoryId   Int
+  organizerId  String
+  venueId      Int?
+  categoryId   Int?
   slug         String         @unique
   title        String
   status       Status         @default(active)
   bannerDisk   String         @default("local")
   bannerPath   String
   description  String
-  eventType    EventType      @default(tickted)
-  eventMode    EventMode      @default(single)
+  // type         EventType      @default(tickted)
+  // mode         EventMode      @default(single)
+  // eventType    EventType      @default(tickted)
+  // eventMode    EventMode      @default(single)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
-  category     Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  organizer    Organizer      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-  venue        Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  // category     Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  // organizer    Organizer      @relation(fields: [organizerId], references: [id], onDelete: Restrict)
+  // venue        Venue?         @relation(fields: [venueId], references: [id], onDelete: SetNull)
   EventSession EventSession[]
   TicketType   TicketType[]
+  Organizer    Organizer      @relation(fields: [organizerId], references: [id])
+  Venue        Venue?         @relation(fields: [venueId], references: [id])
+  Category     Category?      @relation(fields: [categoryId], references: [id])
 }
 
 model EventSession {
@@ -118,7 +123,10 @@ model EventSession {
   endDate   DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  event     Event    @relation(fields: [eventId], references: [id])
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, startDate, endDate])
 }
 
 enum Status {
@@ -156,6 +164,8 @@ model Venue {
 model Category {
   id        Int      @id @default(autoincrement())
   name      String   @unique
+  // imagePath  String
+  // imageDisk  String   @default("local")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   Event     Event[]
