@@ -8,11 +8,7 @@ const homeController = {
         const { page, limit } = parsePagination(req.query);
         
         const result = await homeService.latestEvents({
-            selections: null,
-            relations: null,
-        }, {
-            limit,
-            page
+            selections: null, relations: { venue: true}, limit,  page
         });
         
         return sendSuccess(res, { events: result });
@@ -22,11 +18,7 @@ const homeController = {
         const { page, limit } = parsePagination(req.query);
 
         const result = await homeService.getCategories(
-            { 
-                selections: null, relations: null 
-            }, { 
-                limit, page 
-            }
+            { selections: null, relations: null, limit, page }
         );
         return sendSuccess(res, { categories: result });
     }),
