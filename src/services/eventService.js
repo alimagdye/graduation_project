@@ -30,6 +30,10 @@ const eventService = {
     DEFAULT_RELATIONS: {
         venue: true,
     },
+    
+    ALLOWED_RELATIONS: ['venue', 'category', 'organizer', 'sessions', 'ticketTypes'],
+    
+    MAX_LIMIT: 100,
 
     async create(organizerId, { title, description, status = eventStatus.ACTIVE, type, mode, banner, venueId, categoryId }, tx = prismaClient, { exclude = eventService.DEFAULT_EXCLUDE_FIELDS } = {}) {
         const slug = slugify(title, { lower: true, strict: true });
@@ -92,31 +96,35 @@ const eventService = {
         });
     },
 
-    async getAll({ selections, relations, page = 1, limit = 10, orderBy, exclude = eventService.DEFAULT_EXCLUDE_FIELDS } = {}) {
-        const queryOptions = new PrismaQueryBuilder()
+    async getAll({ selections, relations, page, limit, orderBy, exclude, filters } = {}) {
+        const query = new PrismaQueryBuilder({
+            maxLimit: eventService.MAX_LIMIT,
+            allowedRelations: eventService.ALLOWED_RELATIONS
+        })
             .paginate(page, limit)
             .sort(orderBy || { createdAt: 'desc' })
             .select(selections || eventService.DEFAULT_SELECTIONS)
             .include(relations || eventService.DEFAULT_RELATIONS)
-            .omit(exclude)
+            .omit(exclude || eventService.DEFAULT_EXCLUDE_FIELDS)
+            .where(filters || {})
             .value;
 
-        return prismaClient.event.findMany({
-            where: {},
-            ...queryOptions
-        });
+        const events = await prismaClient.event.findMany(query);
+        return eventService.getBannerAbsUrl(events);
     },
 
-    async getById(id, { selections = eventService.DEFAULT_SELECTIONS, relations = eventService.DEFAULT_RELATIONS }) {
-        const queryOptions = new PrismaQueryBuilder()
-            .select(selections)
-            .include(relations)
+    async getById(id, { selections, relations } = {}) {
+        const query = new PrismaQueryBuilder({
+            allowedRelations: eventService.ALLOWED_RELATIONS
+        })
+            .select(selections || eventService.DEFAULT_SELECTIONS)
+            .include(relations || eventService.DEFAULT_RELATIONS)
             .omit(eventService.DEFAULT_EXCLUDE_FIELDS)
             .value;
         
-        const event = prismaClient.event.findUnique({
+        const event = await prismaClient.event.findUnique({
             where: { id },
-            ...queryOptions
+            ...query
         });
         
         if (event) {
@@ -126,20 +134,19 @@ const eventService = {
         return null;
     },
 
-    async getLatest({ selections, relations, orderBy = 'desc', exclude = eventService.DEFAULT_EXCLUDE_FIELDS }, { limit = 5, page = 1 }) {
-        const query = new PrismaQueryBuilder()
-            .paginate(page, limit)
-            .sort({ createdAt: orderBy })
+    async getLatest({ selections, relations, orderBy, exclude, limit, page } = {}) {
+        const query = new PrismaQueryBuilder({
+            maxLimit: eventService.MAX_LIMIT,
+            allowedRelations: eventService.ALLOWED_RELATIONS
+        })
+            .paginate(page, limit || 5)
+            .sort({ createdAt: orderBy || 'desc' })
             .select(selections)
             .include(relations)
-            .omit(exclude)
+            .omit(exclude || eventService.DEFAULT_EXCLUDE_FIELDS)
             .value;
 
-        const events = await prismaClient.event.findMany({
-            where: {},
-            ...query
-        });
-
+        const events = await prismaClient.event.findMany(query);
         return eventService.getBannerAbsUrl(events);
     },
     
