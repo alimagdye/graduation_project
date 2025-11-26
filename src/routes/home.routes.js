@@ -6,6 +6,10 @@ const Router = express.Router();
 
 Router.get('/latest-events', publicLimiter, homeController.latestEvents);
 
+Router.get('/new-events-this-week', publicLimiter, homeController.newEventsThisWeek);
+
 Router.get('/categories', publicLimiter, homeController.allCategories);
+
+Router.get('/past-events', publicLimiter, homeController.pastEventsAndHighlights);
 
 export default Router;
