@@ -1,7 +1,24 @@
 import { prisma as prismaClient } from '../config/db.js';
 
 const venueService = {
-    async create({ name, address, city, country, state, zipCode = null, longitude, latitude, googlePlaceId = null }, tx = prismaClient) {
+    DEFAULT_EXCLUDE_FIELDS: {
+        createdAt: true,
+        updatedAt: true,
+    },
+    async create(
+        {
+            name,
+            address,
+            city,
+            country,
+            state,
+            zipCode = null,
+            longitude,
+            latitude,
+            googlePlaceId = null,
+        },
+        tx = prismaClient
+    ) {
         return tx.venue.create({
             data: {
                 name,
