@@ -4,6 +4,7 @@ CREATE TABLE "TicketType" (
     "eventId" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
     "price" DECIMAL(10,2) NOT NULL,
+    "sold" INTEGER NOT NULL DEFAULT 0,
     "quantity" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
