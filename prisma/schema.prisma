@@ -99,7 +99,7 @@ model Event {
   organizerId String
   venueId     Int?
   categoryId  Int?
-  slug        String    @unique
+  slug        String
   title       String
   bannerDisk  String    @default("local")
   bannerPath  String
