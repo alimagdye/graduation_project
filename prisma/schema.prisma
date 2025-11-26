@@ -27,8 +27,12 @@ model User {
   isVerified         Boolean  @default(false)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+  //* TODO: ADD 'deletedAt' field for soft delete
+  //deletedAt          DateTime?
 
+  //* TODO: UPDATE 'refreshToken' to 'refreshTokens'
   refreshToken RefreshToken[]
+  //* TODO: UPDATE 'Organizer' to 'organizer'
   Organizer    Organizer?
 }
 
@@ -79,11 +83,12 @@ model RefreshToken {
 }
 
 model Organizer {
-  id         String   @id @default(uuid())
-  userId     String   @unique
-  isApproved Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id         String    @id @default(uuid())
+  userId     String    @unique
+  isApproved Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
 
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   events Event[]
@@ -92,11 +97,11 @@ model Organizer {
 model Event {
   id            Int            @id @default(autoincrement())
   organizerId   String
-  venueId       Int
-  categoryId    Int
+  venueId       Int?
+  categoryId    Int?
   slug          String         @unique
   title         String
-  status        Status         @default(active)
+  status        EventStatus    @default(active)
   bannerDisk    String         @default("local")
   bannerPath    String
   description   String
@@ -104,33 +109,34 @@ model Event {
   mode          EventMode      @default(single)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  category      Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   organizer     Organizer      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-  venue         Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  venue         Venue?         @relation(fields: [venueId], references: [id], onDelete: SetNull)
   eventSessions EventSession[]
   ticketTypes   TicketType[]
+
+  @@index([status, organizerId])
 }
 
 model EventSession {
-  id        Int      @id @default(autoincrement())
+  id        Int         @id @default(autoincrement())
   eventId   Int
-  //status    Status   @default("active")
+  status    EventStatus @default(active)
+  //* TODO: ADD capcaity field
+  // capacity Int
   startDate DateTime
   endDate   DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, startDate, endDate])
 }
 
-enum Status {
-  draft // allowing organizer to save event as draft
+enum EventStatus {
   active
   cancelled
-  completed // Should not be allowing organizer to update to completed event if its not
-  deleted // Or add column in the event table to indicate soft delete
 }
 
 enum EventType {
@@ -174,6 +180,7 @@ model TicketType {
   eventId   Int
   name      String
   price     Decimal  @db.Decimal(10, 2)
+  sold      Int      @default(0)
   quantity  Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
