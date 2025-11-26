@@ -52,6 +52,7 @@
     "@faker-js/faker": "^10.1.0",
     "@prisma/config": "^6.18.0",
     "nodemon": "^3.1.10",
+    "prettier": "3.6.2",
     "prisma": "^6.18.0"
   }
 }
