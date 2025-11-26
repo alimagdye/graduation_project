@@ -90,57 +90,57 @@ model Organizer {
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  events Event[]
+  user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Event Event[]
 }
 
 model Event {
-  id            Int            @id @default(autoincrement())
-  organizerId   String
-  venueId       Int?
-  categoryId    Int?
-  slug          String         @unique
-  title         String
-  status        EventStatus    @default(active)
-  bannerDisk    String         @default("local")
-  bannerPath    String
-  description   String
-  type          EventType      @default(tickted)
-  mode          EventMode      @default(single)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  organizer     Organizer      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-  venue         Venue?         @relation(fields: [venueId], references: [id], onDelete: SetNull)
-  eventSessions EventSession[]
-  ticketTypes   TicketType[]
+  id          Int       @id @default(autoincrement())
+  organizerId String
+  venueId     Int?
+  categoryId  Int?
+  slug        String    @unique
+  title       String
+  bannerDisk  String    @default("local")
+  bannerPath  String
+  description String
+  type        EventType @default(ticketed)
+  mode        EventMode @default(single)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  venue       Venue?    @relation(fields: [venueId], references: [id], onDelete: SetNull)
 
-  @@index([status, organizerId])
+  eventSessions EventSession[]
+
+  ticketTypes TicketType[]
 }
 
 model EventSession {
-  id        Int         @id @default(autoincrement())
+  id        Int           @id @default(autoincrement())
   eventId   Int
-  status    EventStatus @default(active)
+  status    SessionStatus @default(active)
   //* TODO: ADD capcaity field
   // capacity Int
   startDate DateTime
   endDate   DateTime
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, startDate, endDate])
 }
 
-enum EventStatus {
+enum SessionStatus {
   active
   cancelled
 }
 
 enum EventType {
-  tickted
+  ticketed
   free
 }
 
