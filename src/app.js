@@ -5,7 +5,6 @@ const app = express();
 //! BEFORE MIDDLEWARES
 import { cors, corsOptions } from './config/cors.js';
 import { activityLogger } from './middlewares/activityLogger.js';
-import errorhandler from './middlewares/errorHandler.js';
 
 
 //! ROUTES
@@ -22,8 +21,5 @@ app.use(express.json());
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/organizer', organizerRoutes);
-
-app.use(errorhandler);
-
 
 export default app;
