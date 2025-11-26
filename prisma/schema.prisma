@@ -114,8 +114,9 @@ model Event {
   venue       Venue?    @relation(fields: [venueId], references: [id], onDelete: SetNull)
 
   eventSessions EventSession[]
+  ticketTypes   TicketType[]
 
-  ticketTypes TicketType[]
+  @@unique([organizerId, slug])
 }
 
 model EventSession {
