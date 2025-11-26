@@ -84,8 +84,8 @@ const organizerValidation = {
         body('tickets.*.price').isFloat({ min: 0 }).withMessage('Price must be positive'),
         body('ticket.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
         body('tickets').custom((tickets, { req }) => {
-            const eventType = req.body.eventType;
-            if (eventType === EventType.FREE) {
+            const type = req.body.type;
+            if (type === EventType.FREE) {
                 for (let t of tickets) {
                     if (t.price > 0) {
                         throw new Error('Free events cannot have paid tickets');
@@ -100,7 +100,7 @@ const organizerValidation = {
             .isArray()
             .withMessage('sessions must be an array')
             .custom((sessions, { req }) => {
-                const mode = req.body.eventMode;
+                const mode = req.body.mode;
                 if (!Array.isArray(sessions) || sessions.length === 0) {
                     throw new Error('At least one session is required');
                 }
@@ -110,7 +110,6 @@ const organizerValidation = {
                 }
 
                 for (let s of sessions) {
-                    const test = 'asdasdsa';
                     if (!s.startDate || !s.endDate) {
                         throw new Error('Each session must have startDate and endDate');
                     }
