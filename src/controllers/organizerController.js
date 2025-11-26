@@ -5,61 +5,8 @@ import organizerService from '../services/organizerService.js';
 const organizerController = {
     createEvent: asyncWrapper(async (req, res) => {
         const userId = req.user.id;
-        
-        let { 
-            title, 
-            category, 
-            startDate, 
-            endDate, 
-            location, 
-            description,
-            banner,
-            tickets,
-            sessions,
-            eventType,
-            eventMode,
-        } = req.body;
-        
-        const result = await organizerService.createEvent(
-            userId, { 
-            title, 
-            category, 
-            startDate, 
-            endDate, 
-            location, 
-            description,
-            banner,
-            tickets,
-            sessions,
-            eventType,
-            eventMode,
-        });
-        
-        if (result.status === 'fail') {
-            return sendFail(res, result.data, 400);
-        }
-        
-        return sendSuccess(res, result.data, 201);
-    }),
 
-    deleteEvent: asyncWrapper(async (req, res)=>{
-        const eventId = req.params.eventId;
-        const userId = req.user.id;
-
-        const result = await organizerService.deleteEvent(userId, eventId);
-
-        if (result.status === 'fail') {
-            return sendFail(res, result.data, 400);
-        }
-        
-        return sendSuccess(res, result.data, 200);
-    }),
-
-    updateEvent: asyncWrapper(async (req, res)=> {
-        const eventId = req.params.eventId;
-        const userId = req.user.id;
-
-         const {
+        let {
             title,
             category,
             startDate,
@@ -70,33 +17,69 @@ const organizerController = {
             tickets,
             sessions,
             eventType,
-            eventMode
+            eventMode,
         } = req.body;
 
-        const result = await organizerService.updateEvent(
-            userId,
-            eventId,
-            {
-                title,
-                category,
-                startDate,
-                endDate,
-                location,
-                description,
-                banner,
-                tickets,
-                sessions,
-                eventType,
-                eventMode,
+        const result = await organizerService.createEvent(userId, {
+            title,
+            category,
+            startDate,
+            endDate,
+            location,
+            description,
+            banner,
+            tickets,
+            sessions,
+            eventType,
+            eventMode,
         });
 
-        if(result.status === 'fail') {
+        if (result.status === 'fail') {
             return sendFail(res, result.data, 400);
         }
 
-        return sendSuccess(res, result.data, 200);        
+        return sendSuccess(res, result.data, 201);
     }),
-    
+
+    deleteEvent: asyncWrapper(async (req, res) => {
+        const eventId = req.params.eventId;
+        const userId = req.user.id;
+
+        const result = await organizerService.deleteEvent(userId, eventId);
+
+        if (result.status === 'fail') {
+            return sendFail(res, result.data, 400);
+        }
+
+        return sendSuccess(res, result.data, 200);
+    }),
+
+    updateEvent: asyncWrapper(async (req, res) => {
+        const eventId = req.params.eventId;
+        const userId = req.user.id;
+        const banner = req.file;
+
+        const { title, categoryName, location, description, tickets, sessions, type, mode } =
+            req.body;
+
+        const result = await organizerService.updateEvent(userId, eventId, {
+            title,
+            categoryName,
+            location,
+            description,
+            banner,
+            tickets,
+            sessions,
+            type,
+            mode,
+        });
+
+        if (result.status === 'fail') {
+            return sendFail(res, result.data, 400);
+        }
+
+        return sendSuccess(res, result.data, 200);
+    }),
 };
 
 export default organizerController;
