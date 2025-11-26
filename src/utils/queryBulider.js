@@ -12,10 +12,7 @@ class PrismaQueryBuilder {
 
     paginate(page = 1, limit = 10) {
         const safePage = Math.max(1, parseInt(page) || 1);
-        const safeLimit = Math.min(
-            this._maxLimit,
-            Math.max(1, parseInt(limit) || 10)
-        );
+        const safeLimit = Math.min(this._maxLimit, Math.max(1, parseInt(limit) || 10));
         this._pagination = { page: safePage, limit: safeLimit };
         return this;
     }
@@ -34,7 +31,7 @@ class PrismaQueryBuilder {
         if (relations && Object.keys(relations).length > 0) {
             if (this._allowedRelations.length > 0) {
                 this._include = Object.keys(relations)
-                    .filter(rel => this._allowedRelations.includes(rel))
+                    .filter((rel) => this._allowedRelations.includes(rel))
                     .reduce((acc, rel) => ({ ...acc, [rel]: relations[rel] }), {});
             } else {
                 this._include = relations;
@@ -71,9 +68,9 @@ class PrismaQueryBuilder {
 
         if (this._select) {
             query.select = { ...this._select };
-            
+
             if (this._include && Object.keys(this._include).length > 0) {
-                Object.keys(this._include).forEach(relation => {
+                Object.keys(this._include).forEach((relation) => {
                     query.select[relation] = this._include[relation];
                 });
             }
@@ -88,6 +85,4 @@ class PrismaQueryBuilder {
     }
 }
 
-export  { 
-    PrismaQueryBuilder 
-};
+export { PrismaQueryBuilder };
