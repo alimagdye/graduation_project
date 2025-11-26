@@ -11,15 +11,30 @@ const organizerService = {
     // CREATE
     async create(userId, { isApproved = false }, tx = prismaClient) {
         return tx.organizer.create({
-            data: { 
-                userId, 
-                isApproved 
-            }
+            data: {
+                userId,
+                isApproved,
+            },
         });
     },
-    
+
     // CREATE EVENT
-    async createEvent(userId, { title, category: categoryName, startDate, endDate, location, description, banner, tickets, sessions, eventType, eventMode }) {
+    async createEvent(
+        userId,
+        {
+            title,
+            category: categoryName,
+            startDate,
+            endDate,
+            location,
+            description,
+            banner,
+            tickets,
+            sessions,
+            eventType,
+            eventMode,
+        }
+    ) {
         const organizer = await organizerService.getByUserId(userId);
         if (!organizer) {
             return {
@@ -34,50 +49,57 @@ const organizerService = {
                 data: { error: 'Organizer is not approved to create events' },
             };
         }
-        
+
         let result = null;
         try {
             const result = await prismaClient.$transaction(async (tx) => {
-
                 const venue = await venueService.create(location, tx);
-                
-                const category = await categoryService.getByCategory(categoryName, tx); 
-                if(!category) return {status:'fail', data: {error: 'Invalid category'}};
 
-                const event = await eventService.create(organizer.id, {
-                    title,
-                    description,
-                    banner,
-                    eventMode,
-                    eventType,
-                    venueId: venue.id, 
-                    categoryId: category.id,
-                }, tx);
-                
+                const category = await categoryService.getByCategory(categoryName, tx);
+                if (!category) return { status: 'fail', data: { error: 'Invalid category' } };
+
+                const event = await eventService.create(
+                    organizer.id,
+                    {
+                        title,
+                        description,
+                        banner,
+                        eventMode,
+                        eventType,
+                        venueId: venue.id,
+                        categoryId: category.id,
+                    },
+                    tx
+                );
+
                 let eventSessions = [];
-                if(eventMode === EventMode.SINGLE){
+                if (eventMode === EventMode.SINGLE) {
                     const singleSession = await eventService.createSession(
-                        event.id, {startDate, endDate}, tx
+                        event.id,
+                        { startDate, endDate },
+                        tx
                     );
                     eventSessions.push(singleSession);
-                }else if (eventMode === EventMode.RECURRING){
-                    for(const s of sessions){
+                } else if (eventMode === EventMode.RECURRING) {
+                    for (const s of sessions) {
                         const recurringSession = await eventService.createSession(
-                            event.id, {startDate: s.startDate, endDate: s.endDate}, tx
+                            event.id,
+                            { startDate: s.startDate, endDate: s.endDate },
+                            tx
                         );
                         eventSessions.push(recurringSession);
-                    };
+                    }
                 }
 
                 let ticketTypes = [];
                 if (tickets && tickets.length > 0 && eventType === EventType.TICKTED) {
                     ticketTypes = await ticketTypeService.createBulk(event.id, tickets, tx);
-                }else if(tickets && tickets.length > 0 && eventType === EventType.FREE){
+                } else if (tickets && tickets.length > 0 && eventType === EventType.FREE) {
                     // frontend -> [name: free ticket , quantity, price=0] // or will make it in backend
                     ticketTypes = await ticketTypeService.createFreeBulk(event.id, tickets, tx);
                 }
 
-                return { event, ticketTypes, venue, eventSessions};
+                return { event, ticketTypes, venue, eventSessions };
             });
 
             return {
@@ -91,109 +113,107 @@ const organizerService = {
             throw err;
         }
     },
-    
-    //TODO
-    // async listEvents(organizerId, { status, dateRange }) {
-    //     return eventService.list({ status, dateRange, organizerId });
-    // },
-    
-    //UPDATE
-    async updateEvent(userId, eventId, { title, category: categoryName, description, startDate, endDate, banner, tickets, sessions, eventType, eventMode, location}) {
-        const organizer = await organizerService.getByUserId(userId);
-        const event = await eventService.getById(eventId);
+
+    //UPDATE EVENT
+    async updateEvent(
+        userId,
+        eventId,
+        { title, categoryName, description, banner, tickets, sessions, type, mode, location }
+    ) {
+        const [organizer, event, category] = await Promise.all([
+            organizerService.getByUserId(userId),
+            eventService.getById(eventId),
+            categoryService.getByCategory(categoryName),
+        ]);
 
         if (!organizer) {
-            return { status: 'fail', data: { error: 'Organizer not found' }};
+            return { status: 'fail', data: { error: 'Organizer not found' } };
         }
 
         if (!event) {
-            return { status: 'fail', data: { error: `Event doesn't exist` }};
+            return { status: 'fail', data: { error: `Event doesn't exist` } };
         }
 
         if (event.organizerId !== organizer.id) {
-            return { status: 'fail', data: { error: 'Unauthorized to update this event' }};
+            return { status: 'fail', data: { error: 'Unauthorized to update this event' } };
         }
 
+        if (!category) return { status: 'fail', data: { error: 'Invalid category' } };
+
         let oldBannerPath = event.bannerPath;
-
+        let result;
         try {
-            const result = await prismaClient.$transaction(async (tx) => {
-
-                const category = await categoryService.getByCategory(categoryName, tx);
-                if (!category) throw new Error("Invalid category");
-
+            result = await prismaClient.$transaction(async (tx) => {
                 let updatedVenueId = event.venueId;
                 if (location) {
                     const updatedVenue = await venueService.update(event.venueId, location, tx);
                     updatedVenueId = updatedVenue.id;
                 }
 
-                let bannerPath = event.bannerPath;
-                if (banner && banner !== oldBannerPath) {
-                    bannerPath = await fileService.save(banner);
-                }
+                const updatedEvent = await eventService.update(
+                    eventId,
+                    organizer.id,
+                    {
+                        title,
+                        description,
+                        banner,
+                        mode,
+                        type,
+                        categoryId: category.id,
+                        venueId: updatedVenueId,
+                    },
+                    tx
+                );
 
-                const updatedEvent = await eventService.update(eventId, {
-                    title,
-                    description,
-                    bannerPath,
-                    eventMode,
-                    eventType,
-                    categoryId: category.id,
-                    venueId: updatedVenueId,
-                }, tx);
-
-                if (eventMode) {
+                if (sessions && sessions.length > 0) {
                     await eventService.deleteSessions(eventId, tx);
-
-                    if (eventMode === EventMode.SINGLE && startDate && endDate) {
-                        await eventService.createSession(eventId, { startDate, endDate }, tx);
-                    } else if (eventMode === EventMode.RECURRING && sessions && sessions.length > 0) {
-                        for (const s of sessions) {
-                            await eventService.createSession(eventId, { startDate: s.startDate, endDate: s.endDate }, tx);
-                        }
-                    }
+                    await eventService.createBulkSessions(updatedEvent.id, sessions, tx);
                 }
 
                 if (tickets && tickets.length > 0) {
                     await ticketTypeService.deleteTickets(eventId, tx);
 
-                    if (eventType === EventType.TICKTED) {
-                        await ticketTypeService.createBulk(eventId, tickets, tx);
-                    } else if (eventType === EventType.FREE) {
-                        await ticketTypeService.createFreeBulk(eventId, tickets, tx);
+                    if (type === EventType.TICKETED) {
+                        await ticketTypeService.createBulkTickets(eventId, tickets, tx);
+                    } else if (type === EventType.FREE) {
+                        await ticketTypeService.createFreeBulkTickets(eventId, tickets, tx);
                     }
                 }
 
                 return { updatedEvent };
             });
 
-            if (banner && banner !== oldBannerPath) {
-                await fileService.delete(oldBannerPath);
+            if (banner && oldBannerPath) {
+                await fileService
+                    .delete(oldBannerPath)
+                    .catch((e) => console.log('Old banner delete failed', e));
             }
 
-            return { 
+            return {
                 status: 'success',
                 data: {
                     message: 'Event updated successfully',
-                    result,
+                    event: result.updatedEvent,
                 },
             };
-
         } catch (err) {
-            if (banner && banner !== oldBannerPath) {
-                await fileService.delete(banner);
+            if (result?.updatedEvent?.bannerPath) {
+                await fileService
+                    .delete(result.updatedEvent.bannerPath)
+                    .catch((e) => console.log('Rollback banner delete failed', e));
             }
             throw err;
         }
     },
-    
-    //DELETE
+
+    //DELETE EVENT
     async deleteEvent(userId, eventId) {
-        const event = await eventService.getById(eventId);
-        const organizer = await organizerService.getByUserId(userId);
-        
-        if(!event) {
+        const [event, organizer] = await Promise.all([
+            eventService.getById(eventId),
+            organizerService.getByUserId(userId),
+        ]);
+
+        if (!event) {
             return {
                 status: 'fail',
                 data: { error: `Event doesn't exist` },
@@ -220,24 +240,49 @@ const organizerService = {
                 data: { error: 'Unauthorized to delete this event' },
             };
         }
-        
-        const result = await eventService.delete(eventId);
+
+        if (event.deletedAt) {
+            return {
+                status: 'fail',
+                data: { error: 'Event already deleted' },
+            };
+        }
+
+        // check if the event related to tickets -> can't delete else -> soft delete or hard delete
+
+        let result;
+        try {
+            // result = await eventService.delete(eventId);
+            result = await eventService.softDelete(eventId);
+        } catch (err) {
+            if (err.code === 'P2003') {
+                return {
+                    status: 'fail',
+                    data: { error: `The event related to tickets can't be deleted` },
+                };
+            }
+            throw err;
+        }
+
+        if (result?.bannerPath) {
+            await fileService
+                .delete(result.bannerPath)
+                .catch((e) => console.log('Rollback banner delete failed', e));
+        }
 
         return {
             status: 'success',
             data: {
                 message: 'Event deleted successfully',
-                result,
-            }
-        }
+            },
+        };
     },
-    
+
     async getByUserId(userId) {
         return prismaClient.organizer.findUnique({
             where: { userId },
         });
     },
-    
 };
 
 export default organizerService;
