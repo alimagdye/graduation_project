@@ -65,9 +65,13 @@ const organizerService = {
 
                 let ticketTypes = [];
                 if (tickets && tickets.length > 0 && type === EventType.TICKETED) {
-                    ticketTypes = await ticketTypeService.createBulk(event.id, tickets, tx);
+                    ticketTypes = await ticketTypeService.createBulkTickets(event.id, tickets, tx);
                 } else if (tickets && tickets.length > 0 && type === EventType.FREE) {
-                    ticketTypes = await ticketTypeService.createFreeBulk(event.id, tickets, tx);
+                    ticketTypes = await ticketTypeService.createFreeBulkTickets(
+                        event.id,
+                        tickets,
+                        tx
+                    );
                 }
 
                 return { event, ticketTypes, venue, eventSessions };
@@ -84,27 +88,169 @@ const organizerService = {
         }
     },
 
-    //TODO
-    // async listEvents(organizerId, { status, dateRange }) {
-    //     return eventService.list({ status, dateRange, organizerId });
-    // },
+    //UPDATE EVENT
+    async updateEvent(
+        userId,
+        eventId,
+        { title, categoryName, description, banner, tickets, sessions, type, mode, location }
+    ) {
+        const [organizer, event, category] = await Promise.all([
+            organizerService.getByUserId(userId),
+            eventService.getById(eventId),
+            categoryService.getByCategory(categoryName),
+        ]);
 
-    // async updateEvent(userId, eventId, { title, description, startDate, endDate, status, banner }) {
+        if (!organizer) {
+            return { status: 'fail', data: { error: 'Organizer not found' } };
+        }
 
-    // },
+        if (!event) {
+            return { status: 'fail', data: { error: `Event doesn't exist` } };
+        }
 
-    // async deleteEvent(organizerId, eventId) {
-    //     const event = eventService.getById(eventId);
+        if (event.organizerId !== organizer.id) {
+            return { status: 'fail', data: { error: 'Unauthorized to update this event' } };
+        }
 
-    //     if (event.organizerId !== organizerId) {
-    //         return {
-    //             status: 'fail',
-    //             data: { error: 'Unauthorized to delete this event' },
-    //         };
-    //     }
+        if (!category) return { status: 'fail', data: { error: 'Invalid category' } };
 
-    //     return eventService.delete(eventId);
-    // },
+        let oldBannerPath = event.bannerPath;
+        let result;
+        try {
+            result = await prismaClient.$transaction(async (tx) => {
+                let updatedVenueId = event.venueId;
+                if (location) {
+                    const updatedVenue = await venueService.update(event.venueId, location, tx);
+                    updatedVenueId = updatedVenue.id;
+                }
+
+                const updatedEvent = await eventService.update(
+                    eventId,
+                    organizer.id,
+                    {
+                        title,
+                        description,
+                        banner,
+                        mode,
+                        type,
+                        categoryId: category.id,
+                        venueId: updatedVenueId,
+                    },
+                    tx
+                );
+
+                if (sessions && sessions.length > 0) {
+                    await eventService.deleteSessions(eventId, tx);
+                    await eventService.createBulkSessions(updatedEvent.id, sessions, tx);
+                }
+
+                if (tickets && tickets.length > 0) {
+                    await ticketTypeService.deleteTickets(eventId, tx);
+
+                    if (type === EventType.TICKETED) {
+                        await ticketTypeService.createBulkTickets(eventId, tickets, tx);
+                    } else if (type === EventType.FREE) {
+                        await ticketTypeService.createFreeBulkTickets(eventId, tickets, tx);
+                    }
+                }
+
+                return { updatedEvent };
+            });
+
+            if (banner && oldBannerPath) {
+                await fileService
+                    .delete(oldBannerPath)
+                    .catch((e) => console.log('Old banner delete failed', e));
+            }
+
+            return {
+                status: 'success',
+                data: {
+                    message: 'Event updated successfully',
+                    event: result.updatedEvent,
+                },
+            };
+        } catch (err) {
+            if (result?.updatedEvent?.bannerPath) {
+                await fileService
+                    .delete(result.updatedEvent.bannerPath)
+                    .catch((e) => console.log('Rollback banner delete failed', e));
+            }
+            throw err;
+        }
+    },
+
+    //DELETE EVENT
+    async deleteEvent(userId, eventId) {
+        const [event, organizer] = await Promise.all([
+            eventService.getById(eventId),
+            organizerService.getByUserId(userId),
+        ]);
+
+        if (!event) {
+            return {
+                status: 'fail',
+                data: { error: `Event doesn't exist` },
+            };
+        }
+
+        if (!organizer) {
+            return {
+                status: 'fail',
+                data: { error: 'Organizer profile not found' },
+            };
+        }
+
+        if (!organizer.isApproved) {
+            return {
+                status: 'fail',
+                data: { error: 'Organizer is not approved to delete events' },
+            };
+        }
+
+        if (event.organizerId !== organizer.id) {
+            return {
+                status: 'fail',
+                data: { error: 'Unauthorized to delete this event' },
+            };
+        }
+
+        if (event.deletedAt) {
+            return {
+                status: 'fail',
+                data: { error: 'Event already deleted' },
+            };
+        }
+
+        // check if the event related to tickets -> can't delete else -> soft delete or hard delete
+
+        let result;
+        try {
+            // result = await eventService.delete(eventId);
+            result = await eventService.softDelete(eventId);
+        } catch (err) {
+            if (err.code === 'P2003') {
+                return {
+                    status: 'fail',
+                    data: { error: `The event related to tickets can't be deleted` },
+                };
+            }
+            throw err;
+        }
+
+        if (result?.bannerPath) {
+            await fileService
+                .delete(result.bannerPath)
+                .catch((e) => console.log('Rollback banner delete failed', e));
+        }
+
+        return {
+            status: 'success',
+            data: {
+                message: 'Event deleted successfully',
+            },
+        };
+    },
 
     async getByUserId(userId) {
         return prismaClient.organizer.findUnique({

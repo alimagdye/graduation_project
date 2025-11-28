@@ -25,11 +25,32 @@ const venueService = {
                 address,
                 city,
                 country,
-                state,
                 zipCode,
                 longitude,
                 latitude,
                 googlePlaceId,
+                state,
+            },
+        });
+    },
+
+    async update(
+        venueId,
+        { name, address, city, country, zipCode, longitude, latitude, googlePlaceId, state },
+        tx = prismaClient
+    ) {
+        return tx.venue.update({
+            where: { id: venueId },
+            data: {
+                name,
+                address,
+                city,
+                country,
+                zipCode,
+                latitude,
+                longitude,
+                googlePlaceId,
+                state,
             },
         });
     },

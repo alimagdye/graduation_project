@@ -94,6 +94,78 @@ const eventService = {
         };
     },
 
+    //DELETE
+    async delete(eventId) {
+        return prismaClient.event.delete({
+            where: { id: Number(eventId) },
+        });
+    },
+
+    //SOFT DELETE
+    async softDelete(eventId) {
+        return prismaClient.event.update({
+            where: { id: Number(eventId) },
+            data: { deletedAt: new Date() },
+        });
+    },
+
+    //UPDATE
+    async update(
+        eventId,
+        organizerId,
+        { title, description, banner, mode, type, categoryId, venueId },
+        tx = prismaClient
+    ) {
+        const slug = eventService.generateSlug(title);
+
+        const existingEvent = await eventService.findBySlug(organizerId, slug);
+        if (existingEvent) {
+            throw new ConflictError('Event with the same title already exists');
+        }
+
+        let newBannerPath = null;
+        let newBannerDisk = null;
+        let newAbsUrl = null;
+        if (banner) {
+            const {
+                disk: bannerDisk,
+                url: bannerPath,
+                absUrl,
+            } = await eventService.handleBanner(banner);
+            newBannerPath = bannerPath;
+            newBannerDisk = bannerDisk;
+            newAbsUrl = absUrl;
+        }
+
+        const updatedEvent = await tx.event.update({
+            where: { id: eventId },
+            data: {
+                title,
+                slug,
+                description,
+                mode,
+                type,
+                categoryId,
+                venueId,
+                ...(newBannerDisk && { bannerDisk: newBannerDisk }),
+                ...(newBannerPath && { bannerPath: newBannerPath }),
+            },
+        });
+
+        const { bannerDisk, bannerPath, ...updatedEventData } = updatedEvent;
+
+        return {
+            ...updatedEventData,
+            bannerUrl: newAbsUrl || eventService.getBannerAbsUrl(updatedEvent)[0].bannerUrl,
+        };
+    },
+
+    async deleteSessions(eventId, tx = prismaClient) {
+        return tx.eventSession.deleteMany({
+            where: { eventId },
+        });
+    },
+
     async createBulkSessions(eventId, sessions, tx = prismaClient) {
         const sessionsData = sessions.map((session) => ({
             eventId,

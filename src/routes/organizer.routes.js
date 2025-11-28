@@ -5,7 +5,7 @@ import validate from '../middlewares/validate.js';
 import auth from '../middlewares/auth.js';
 import authorize from '../middlewares/authorize.js';
 import { publicLimiter } from '../middlewares/rateLimiter.js';
-import assertMultipart  from '../middlewares/assertMultipart.js';
+import assertMultipart from '../middlewares/assertMultipart.js';
 import { upload } from '../middlewares/upload.js';
 import parseJsonFields from '../middlewares/parseJson.js';
 
@@ -24,9 +24,26 @@ Router.post(
     organizerController.createEvent
 );
 
-//TODO
-//Router.put('/events/:eventId', publicLimiter, authorize.isOrganizer, eventValidation.create, validate, organizerController.updateEvent);
-//Router.delete('/events/:eventId', publicLimiter, authorize.isOrganizer, organizerController.deleteEvent);
+Router.put(
+    '/events/:eventId',
+    publicLimiter,
+    auth,
+    authorize.isOrganizer,
+    assertMultipart,
+    upload.single('banner'),
+    parseJsonFields(['location', 'tickets', 'sessions']),
+    organizerValidation.updateEvent,
+    validate,
+    organizerController.updateEvent
+);
+
+Router.delete(
+    '/events/:eventId',
+    publicLimiter,
+    auth,
+    authorize.isOrganizer,
+    organizerController.deleteEvent
+);
 //Router.get('/events', publicLimiter, authorize.isOrganizer, organizerController.listEvents);
 //Router.get('/events/:eventId/registrations', publicLimiter, authorize.isOrganizer, organizerController.listRegistrations);
 //Router.put('/registrations/:registrationId', publicLimiter, authorize.isOrganizer, organizerController.manageRegistration);
