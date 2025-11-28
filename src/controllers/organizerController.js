@@ -5,33 +5,30 @@ import organizerService from '../services/organizerService.js';
 const organizerController = {
     createEvent: asyncWrapper(async (req, res) => {
         const userId = req.user.id;
+        const banner = req.file;
 
-        let {
-            title,
-            category,
-            startDate,
-            endDate,
+        let { 
+            title, 
+            categoryName,
             location,
             description,
-            banner,
             tickets,
             sessions,
-            eventType,
-            eventMode,
+            type,
+            mode,
         } = req.body;
-
-        const result = await organizerService.createEvent(userId, {
-            title,
-            category,
-            startDate,
-            endDate,
+        
+        const result = await organizerService.createEvent(
+            userId, { 
+            title, 
+            categoryName,
             location,
             description,
             banner,
             tickets,
             sessions,
-            eventType,
-            eventMode,
+            type,
+            mode,
         });
 
         if (result.status === 'fail') {
