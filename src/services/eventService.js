@@ -19,6 +19,7 @@ const eventService = {
 
     DEFAULT_SELECTIONS: {
         id: true,
+        organizerId: true,
         title: true,
         slug: true,
         description: true,
@@ -116,7 +117,7 @@ const eventService = {
         { title, description, banner, mode, type, categoryId, venueId },
         tx = prismaClient
     ) {
-        const slug = eventService.generateSlug(title);
+        const slug = eventService.generateSlug({ title });
 
         const existingEvent = await eventService.findBySlug(organizerId, slug);
         if (existingEvent) {
