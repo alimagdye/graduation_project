@@ -39,7 +39,7 @@ const organizerValidation = {
                 throw new Error('Banner image is required');
             }
 
-            const allowedTypes = ['image/jpg', 'image/png', 'image/gif'];
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
             const allowedExt = allowedTypes.map((type) => type.split('/')[1]).join(', ');
             if (!allowedTypes.includes(req.file.mimetype)) {
                 await fileService.delete(req.file.path);
@@ -181,7 +181,7 @@ const organizerValidation = {
                 throw new Error('Banner image is required');
             }
 
-            const allowedTypes = ['image/jpg', 'image/png', 'image/gif'];
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
             if (!allowedTypes.includes(req.file.mimetype)) {
                 await fileService.delete(req.file.path);
                 throw new Error(`Only .jpg, .png, and .gif formats allowed`);
