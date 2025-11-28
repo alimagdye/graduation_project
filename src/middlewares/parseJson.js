@@ -1,3 +1,4 @@
+import { sendFail } from '../utils/response.js';
 function parseJsonFields(fields) {
     return (req, res, next) => {
         try {
@@ -8,10 +9,7 @@ function parseJsonFields(fields) {
             });
             next();
         } catch (error) {
-            return res.status(400).json({
-                status: 'fail',
-                message: 'Invalid JSON format in form data'
-            });
+            return sendFail(res, { message: 'Invalid JSON format in form data' }, 400);
         }
     }
 }

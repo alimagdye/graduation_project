@@ -1,7 +1,7 @@
 import { STORAGE_TYPE } from '../config/env.js';
-import localDriver from './storage/localDriver.js';
-const getDriver = () => {
-    switch (STORAGE_TYPE) {
+import { localDriver } from './storage/localDriver.js';
+const getDriver = (disk) => {
+    switch (disk || STORAGE_TYPE) {
         case 'local':
         default:
             return localDriver;
@@ -26,6 +26,7 @@ const fileService = {
             disk: STORAGE_TYPE,
             path: result.path,
             url: result.url,
+            absUrl: result.absUrl,
         };
     },
 
@@ -36,6 +37,11 @@ const fileService = {
     async delete(filePath) {
         if (!filePath) return;
         await currentDriver.delete(filePath);
+    },
+    
+    getAbsUrl(filePath, disk = STORAGE_TYPE) {
+        const driver = getDriver(disk);
+        return driver.getAbsUrl(filePath);
     },
 };
 
