@@ -7,20 +7,11 @@ const organizerController = {
         const userId = req.user.id;
         const banner = req.file;
 
-        let { 
-            title, 
-            categoryName,
-            location,
-            description,
-            tickets,
-            sessions,
-            type,
-            mode,
-        } = req.body;
-        
-        const result = await organizerService.createEvent(
-            userId, { 
-            title, 
+        let { title, categoryName, location, description, tickets, sessions, type, mode } =
+            req.body;
+
+        const result = await organizerService.createEvent(userId, {
+            title,
             categoryName,
             location,
             description,
@@ -39,7 +30,7 @@ const organizerController = {
     }),
 
     deleteEvent: asyncWrapper(async (req, res) => {
-        const eventId = req.params.eventId;
+        const eventId = parseInt(req.params.eventId, 10);
         const userId = req.user.id;
 
         const result = await organizerService.deleteEvent(userId, eventId);
@@ -52,7 +43,7 @@ const organizerController = {
     }),
 
     updateEvent: asyncWrapper(async (req, res) => {
-        const eventId = req.params.eventId;
+        const eventId = parseInt(req.params.eventId, 10);
         const userId = req.user.id;
         const banner = req.file;
 
